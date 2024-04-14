@@ -3,8 +3,18 @@ name = "rust-verifier"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 quote = "1.0.36"
 syn = { version = "2.0.58", features = ["full"] }
+
+
+
+[[example]]
+name = "example1"
+path = "examples/example1.rs"
+
+[[example]]
+name = "example2"
+path = "examples/example2.rs"
+
+
