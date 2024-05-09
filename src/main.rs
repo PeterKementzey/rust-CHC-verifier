@@ -29,6 +29,6 @@ fn main() {
     }
 
     for item in ast.items {
-        translate::translate_item(item);
+        translate::translate_item(&item);
     }
 }

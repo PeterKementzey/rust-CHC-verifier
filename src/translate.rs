@@ -2,7 +2,7 @@ use syn::{Block, Expr, Item, Stmt};
 
 use crate::ast_downcasters;
 
-pub(crate) fn translate_item(item: Item) {
+pub(crate) fn translate_item(item: &Item) {
     match item {
         Item::Fn(func) => {
             // Translate function
@@ -19,7 +19,7 @@ pub(crate) fn translate_item(item: Item) {
     }
 }
 
-fn translate_stmt(stmt: Stmt) {
+fn translate_stmt(stmt: &Stmt) {
     match stmt {
         Stmt::Local(_local) => {
             // Translate local variable declaration
@@ -45,7 +45,7 @@ fn translate_stmt(stmt: Stmt) {
     }
 }
 
-fn translate_expr(expr: Expr) {
+fn translate_expr(expr: &Expr) {
     match expr {
         // Expr::Call(_call) => {
         //     // Translate function call
@@ -75,7 +75,7 @@ fn translate_expr(expr: Expr) {
 }
 
 fn translate_block(block: &Block) {
-    for stmt in block.stmts {
+    for stmt in &block.stmts {
         translate_stmt(stmt);
     }
 }
