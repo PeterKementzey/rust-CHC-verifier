@@ -1,9 +1,8 @@
-
 use core::panic;
 
 use syn::{Expr, Item, Stmt};
 
-pub(crate) fn downcast_item(item: Item) -> &'static str{
+pub(crate) fn downcast_item(item: Item) -> &'static str {
     match item {
         Item::Fn(_) => {
             return "Function";
@@ -59,7 +58,7 @@ pub(crate) fn downcast_item(item: Item) -> &'static str{
     }
 }
 
-pub(crate) fn downcast_statement(stmt: Stmt) -> &'static str{
+pub(crate) fn downcast_statement(stmt: Stmt) -> &'static str {
     match stmt {
         Stmt::Local(_) => {
             return "Local";
@@ -76,7 +75,7 @@ pub(crate) fn downcast_statement(stmt: Stmt) -> &'static str{
     }
 }
 
-pub(crate) fn downcast_expression(expr: Expr) -> &'static str{
+pub(crate) fn downcast_expression(expr: Expr) -> &'static str {
     match expr {
         Expr::Array(_) => {
             return "Array";

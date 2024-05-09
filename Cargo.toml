@@ -17,4 +17,6 @@ path = "examples/example1.rs"
 name = "example2"
 path = "examples/example2.rs"
 
-
+[[example]]
+name = "example3"
+path = "examples/example3.rs"
