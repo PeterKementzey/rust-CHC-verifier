@@ -7,6 +7,7 @@ use syn::parse_file;
 
 mod ast_downcasters;
 mod translate;
+mod smtlib2;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
