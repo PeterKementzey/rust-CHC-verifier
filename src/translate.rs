@@ -1,13 +1,15 @@
 use syn::{Block, Expr, Item, Stmt};
 
 use crate::ast_downcasters;
+use crate::smtlib2::HornClause;
 
-pub(crate) fn translate_item(item: &Item) {
+pub(crate) fn translate_item(item: &Item) -> Vec<HornClause> {
     match item {
         Item::Fn(func) => {
             // Translate function
             println!("Function: {}", func.sig.ident);
             translate_block(&*func.block);
+            Vec::new()
         }
         // Add more cases as needed
         _ => {
