@@ -94,8 +94,8 @@ impl HornClause {
 impl Display for HornClause {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let vars: Vec<String> = self.free_vars().into_iter().collect();
-        write!(f, "(assert (forall (")?;
-        for var in &vars {
+        write!(f, "(assert (forall (({} Int)", vars[0])?;
+        for var in &vars[1..] {
             write!(f, " ({} Int)", var)?;
         }
         write!(f, ") (=> (and")?;
