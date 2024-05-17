@@ -1,62 +1,90 @@
-use String as Variable;
+use std::collections::HashSet;
+use std::fmt::{self, Display, Formatter};
 
-enum Expression {
-    Predicate(Predicate),
-    Conjunction(Conjunction),
-    ConstrainedHornClause(ConstrainedHornClause),
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum Expr {
+    Var(String),
+    Const(i32),
+    App(Operation, Vec<Expr>),
 }
 
-trait SMTLib2 {
-    fn to_smtlib2(&self) -> String;
-}
-
-impl SMTLib2 for Expression {
-    fn to_smtlib2(&self) -> String {
+impl Display for Expr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Expression::Predicate(predicate) => predicate.to_smtlib2(),
-            Expression::Conjunction(conjunction) => conjunction.to_smtlib2(),
-            Expression::ConstrainedHornClause(constrained_horn_clause) => {
-                constrained_horn_clause.to_smtlib2()
+            Expr::Var(name) => write!(f, "{}", name),
+            Expr::Const(value) => write!(f, "{}", value),
+            Expr::App(op, args) => {
+                write!(f, "({}", op)?;
+                for arg in args {
+                    write!(f, " {}", arg)?;
+                }
+                write!(f, ")")
             }
         }
     }
 }
 
-struct Predicate {
-    name: String,
-    args: Vec<Variable>,
+#[derive(Debug, Clone)]
+pub(crate) struct HornClause {
+    pub(crate) head: Expr,
+    pub(crate) body: Vec<Expr>,
 }
 
-impl SMTLib2 for Predicate {
-    fn to_smtlib2(&self) -> String {
-        String::from("Predicate") // TODO
-    }
-}
-
-struct Conjunction {
-    expressions: Vec<Box<Expression>>,
-}
-
-impl SMTLib2 for Conjunction {
-    fn to_smtlib2(&self) -> String {
-        let mut s_expr = String::from("(and ");
-        for expr in &self.expressions {
-            s_expr.push_str(&expr.to_smtlib2());
-            s_expr.push(' ');
+impl HornClause {
+    fn free_vars(&self) -> HashSet<String> {
+        let mut vars = HashSet::new();
+        self.collect_free_vars_expr(&self.head, &mut vars);
+        for expr in &self.body {
+            self.collect_free_vars_expr(expr, &mut vars);
         }
-        s_expr.pop();
-        s_expr.push(')');
-        s_expr
+        vars
+    }
+
+    fn collect_free_vars_expr(&self, expr: &Expr, vars: &mut HashSet<String>) {
+        match expr {
+            Expr::Var(name) => {
+                vars.insert(name.clone());
+            }
+            Expr::Const(_) => {}
+            Expr::App(_, args) => {
+                for arg in args {
+                    self.collect_free_vars_expr(arg, vars);
+                }
+            }
+        }
     }
 }
 
-struct ConstrainedHornClause {
-    head: Predicate,
-    body: Option<Box<Expression>>,
+impl Display for HornClause {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let vars: Vec<String> = self.free_vars().into_iter().collect();
+        write!(f, "assert (forall (")?;
+        for var in &vars {
+            write!(f, " ({} Int)", var)?;
+        }
+        write!(f, ") (=> (and")?;
+        for expr in &self.body {
+            write!(f, " {}", expr)?;
+        }
+        write!(f, ") {})))", self.head)
+    }
 }
 
-impl SMTLib2 for ConstrainedHornClause {
-    fn to_smtlib2(&self) -> String {
-        String::from("ConstrainedHornClause") // TODO
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum Operation {
+    GreaterThan,
+    LessThan,
+    Equals,
+    Predicate(String),
+}
+
+impl Display for Operation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Operation::GreaterThan => write!(f, ">"),
+            Operation::LessThan => write!(f, "<"),
+            Operation::Equals => write!(f, "="),
+            Operation::Predicate(name) => write!(f, "{}", name),
+        }
     }
 }
