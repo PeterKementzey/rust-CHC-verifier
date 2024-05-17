@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -6,6 +6,35 @@ pub(crate) enum Expr {
     Var(String),
     Const(i32),
     App(Operation, Vec<Expr>),
+}
+
+impl Expr {
+    fn extract_predicates(&self, predicates: &mut HashMap<String, usize>) {
+        match self {
+            Expr::App(Operation::Predicate(name), args) => {
+                let arg_count = args.len();
+                if let Some(&existing_count) = predicates.get(name) {
+                    if existing_count != arg_count {
+                        panic!(
+                            "Predicate '{}' previously defined with {} arguments, now with {} arguments",
+                            name, existing_count, arg_count
+                        );
+                    }
+                } else {
+                    predicates.insert(name.clone(), arg_count);
+                }
+                for arg in args {
+                    arg.extract_predicates(predicates);
+                }
+            }
+            Expr::App(_, args) => {
+                for arg in args {
+                    arg.extract_predicates(predicates);
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 impl Display for Expr {
@@ -53,12 +82,19 @@ impl HornClause {
             }
         }
     }
+
+    fn extract_predicates(&self, predicates: &mut HashMap<String, usize>) {
+        self.head.extract_predicates(predicates);
+        for expr in &self.body {
+            expr.extract_predicates(predicates);
+        }
+    }
 }
 
 impl Display for HornClause {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let vars: Vec<String> = self.free_vars().into_iter().collect();
-        write!(f, "assert (forall (")?;
+        write!(f, "(assert (forall (")?;
         for var in &vars {
             write!(f, " ({} Int)", var)?;
         }
@@ -87,4 +123,19 @@ impl Display for Operation {
             Operation::Predicate(name) => write!(f, "{}", name),
         }
     }
+}
+
+pub(crate) fn extract_unique_predicates(clauses: &[HornClause]) -> HashMap<String, usize> {
+    let mut predicates = HashMap::new();
+    for clause in clauses {
+        clause.extract_predicates(&mut predicates);
+    }
+    predicates
+}
+
+pub(crate) fn generate_predicate_declarations(predicates: &HashMap<String, usize>) -> Vec<String> {
+    predicates.iter().map(|(name, &arg_count)| {
+        let args = (0..arg_count).map(|_| "Int").collect::<Vec<&str>>().join(" ");
+        format!("(declare-fun {} ({}) Bool)", name, args)
+    }).collect()
 }
