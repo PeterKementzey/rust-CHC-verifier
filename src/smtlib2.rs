@@ -9,6 +9,10 @@ pub(crate) enum Expr {
 }
 
 impl Expr {
+    pub fn var<S: Into<String>>(name: S) -> Self {
+        Expr::Var(name.into())
+    }
+    
     fn extract_predicates(&self, predicates: &mut HashMap<String, usize>) {
         match self {
             Expr::App(Operation::Predicate(name), args) => {
@@ -111,7 +115,14 @@ pub(crate) enum Operation {
     GreaterThan,
     LessThan,
     Equals,
+    Plus,
     Predicate(String),
+}
+
+impl Operation {
+    pub fn predicate<S: Into<String>>(name: S) -> Self {
+        Operation::Predicate(name.into())
+    }
 }
 
 impl Display for Operation {
@@ -120,6 +131,7 @@ impl Display for Operation {
             Operation::GreaterThan => write!(f, ">"),
             Operation::LessThan => write!(f, "<"),
             Operation::Equals => write!(f, "="),
+            Operation::Plus => write!(f, "+"),
             Operation::Predicate(name) => write!(f, "{}", name),
         }
     }
