@@ -49,20 +49,16 @@ fn example_clauses() -> Vec<HornClause> {
     #[allow(non_snake_case)]
     let mut CHCs: Vec<HornClause> = Vec::new();
     CHCs.push(HornClause {
-        head: Expr::App(
-            Operation::predicate("q1"),
-            vec![Expr::var("x"),],
-        ),
-        body: vec![
-            Expr::App(Operation::Equals, vec![Expr::var("x"), Expr::Const(42)]),
-        ],
+        head: Expr::App(Operation::predicate("q1"), vec![Expr::var("x")]),
+        body: vec![Expr::App(
+            Operation::Equals,
+            vec![Expr::var("x"), Expr::Const(42)],
+        )],
     });
     CHCs.push(HornClause {
         head: Expr::App(
             Operation::predicate("q2"),
-            vec![Expr::var("y*"),
-            Expr::var("y^"),
-            Expr::var("x^")],
+            vec![Expr::var("y*"), Expr::var("y^"), Expr::var("x^")],
         ),
         body: vec![
             Expr::App(Operation::predicate("q1"), vec![Expr::var("x")]),
@@ -76,28 +72,32 @@ fn example_clauses() -> Vec<HornClause> {
             vec![Expr::var("y^^"), Expr::var("y^"), Expr::var("x")],
         ),
         body: vec![
-            Expr::App(Operation::predicate("q2"), vec![Expr::var("y*"), Expr::var("y^"), Expr::var("x")]),
-            Expr::App(Operation::Equals, vec![Expr::var("y^^"), Expr::App(Operation::Add, vec![Expr::var("y*"), Expr::Const(1)])]),
+            Expr::App(
+                Operation::predicate("q2"),
+                vec![Expr::var("y*"), Expr::var("y^"), Expr::var("x")],
+            ),
+            Expr::App(
+                Operation::Equals,
+                vec![
+                    Expr::var("y^^"),
+                    Expr::App(Operation::Add, vec![Expr::var("y*"), Expr::Const(1)]),
+                ],
+            ),
         ],
     });
     CHCs.push(HornClause {
-        head: Expr::App(
-            Operation::predicate("q4"),
-            vec![Expr::var("x")],
-        ),
+        head: Expr::App(Operation::predicate("q4"), vec![Expr::var("x")]),
         body: vec![
-            Expr::App(Operation::predicate("q3"), vec![Expr::var("y*"), Expr::var("y^"), Expr::var("x")]),
+            Expr::App(
+                Operation::predicate("q3"),
+                vec![Expr::var("y*"), Expr::var("y^"), Expr::var("x")],
+            ),
             Expr::App(Operation::Equals, vec![Expr::var("y^"), Expr::var("y*")]),
         ],
     });
     CHCs.push(HornClause {
-        head: Expr::App(
-            Operation::Equals,
-            vec![Expr::var("x"), Expr::Const(43)],
-        ),
-        body: vec![
-            Expr::App(Operation::predicate("q4"), vec![Expr::var("x")]),
-        ],
+        head: Expr::App(Operation::Equals, vec![Expr::var("x"), Expr::Const(43)]),
+        body: vec![Expr::App(Operation::predicate("q4"), vec![Expr::var("x")])],
     });
     
     return CHCs;
