@@ -5,6 +5,7 @@ use std::fmt::{self, Display, Formatter};
 pub(crate) enum Expr {
     Var(String),
     Const(i32),
+    ConstTrue,
     App(Operation, Vec<Expr>),
 }
 
@@ -44,8 +45,9 @@ impl Expr {
 impl Display for Expr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Expr::Var(name) => write!(f, "{}", name),
+            Expr::Var(name) => write!(f, "|{}|", name), // we always quote variable names for simplicity
             Expr::Const(value) => write!(f, "{}", value),
+            Expr::ConstTrue => write!(f, "true"),
             Expr::App(op, args) => {
                 write!(f, "({}", op)?;
                 for arg in args {
@@ -79,6 +81,7 @@ impl HornClause {
                 vars.insert(name.clone());
             }
             Expr::Const(_) => {}
+            Expr::ConstTrue => {}
             Expr::App(_, args) => {
                 for arg in args {
                     self.collect_free_vars_expr(arg, vars);

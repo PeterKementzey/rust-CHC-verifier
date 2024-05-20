@@ -13,6 +13,7 @@ mod ast_downcasters;
 mod smtlib2;
 mod translate;
 
+#[allow(dead_code)]
 fn main2() -> Vec<HornClause> {
     // Example usage
     let x = Expr::var("x");
@@ -45,7 +46,9 @@ fn main2() -> Vec<HornClause> {
     return clauses;
 }
 
+#[allow(dead_code)]
 fn example_clauses() -> Vec<HornClause> {
+    #[allow(non_snake_case)]
     let mut CHCs: Vec<HornClause> = Vec::new();
     CHCs.push(HornClause {
         head: Expr::App(
@@ -131,6 +134,7 @@ fn main() {
         println!("{}", tokens);
     }
 
+    #[allow(non_snake_case)]
     let mut CHCs: Vec<HornClause> = Vec::new();
     for item in ast.items {
         // TODO
