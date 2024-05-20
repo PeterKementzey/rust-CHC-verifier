@@ -5,9 +5,7 @@ use std::io::Read;
 use quote::quote;
 use syn::parse_file;
 
-use smtlib2::{
-    Expr, extract_unique_predicates, generate_predicate_declarations, HornClause, Operation,
-};
+use smtlib2::{Expr, generate_predicate_declarations, HornClause, Operation};
 
 mod ast_downcasters;
 mod smtlib2;
@@ -137,14 +135,12 @@ fn main() {
     #[allow(non_snake_case)]
     let mut CHCs: Vec<HornClause> = Vec::new();
     for item in ast.items {
-        // TODO
         translate::translate_item(&item, &mut CHCs);
     }
 
     // CHCs = example_clauses(); // FIXME remove this line
 
-    let unique_predicates = extract_unique_predicates(&CHCs);
-    let predicate_declarations = generate_predicate_declarations(&unique_predicates);
+    let predicate_declarations = generate_predicate_declarations(&CHCs);
 
     {
         use std::io::{stdout, Write};

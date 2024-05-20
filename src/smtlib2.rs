@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -13,12 +13,16 @@ impl Expr {
     pub fn var<S: Into<String>>(name: S) -> Self {
         Expr::Var(name.into())
     }
-    
-    fn extract_predicates(&self, predicates: &mut HashMap<String, usize>) {
+
+    fn extract_predicates<'a>(&'a self, predicates: &mut HashSet<PredicateRef<'a>>) {
         match self {
             Expr::App(Operation::Predicate(name), args) => {
                 let arg_count = args.len();
-                if let Some(&existing_count) = predicates.get(name) {
+                if let Some(existing_count) = predicates
+                    .iter()
+                    .find(|p| p.name == name)
+                    .map(|p| p.args.len())
+                {
                     if existing_count != arg_count {
                         panic!(
                             "Predicate '{}' previously defined with {} arguments, now with {} arguments",
@@ -26,7 +30,7 @@ impl Expr {
                         );
                     }
                 } else {
-                    predicates.insert(name.clone(), arg_count);
+                    predicates.insert(PredicateRef { name, args });
                 }
                 for arg in args {
                     arg.extract_predicates(predicates);
@@ -90,7 +94,7 @@ impl HornClause {
         }
     }
 
-    fn extract_predicates(&self, predicates: &mut HashMap<String, usize>) {
+    fn extract_predicates<'a>(&'a self, predicates: &mut HashSet<PredicateRef<'a>>) {
         self.head.extract_predicates(predicates);
         for expr in &self.body {
             expr.extract_predicates(predicates);
@@ -146,17 +150,28 @@ pub(crate) struct PredicateRef<'a> {
     pub(crate) args: &'a Vec<Expr>,
 }
 
-pub(crate) fn extract_unique_predicates(clauses: &[HornClause]) -> HashMap<String, usize> {
-    let mut predicates = HashMap::new();
+fn extract_unique_predicates<'a>(clauses: &'a Vec<HornClause>) -> HashSet<PredicateRef<'a>> {
+    let mut predicates = HashSet::new();
     for clause in clauses {
         clause.extract_predicates(&mut predicates);
     }
     predicates
 }
 
-pub(crate) fn generate_predicate_declarations(predicates: &HashMap<String, usize>) -> Vec<String> {
-    predicates.iter().map(|(name, &arg_count)| {
-        let args = (0..arg_count).map(|_| "Int").collect::<Vec<&str>>().join(" ");
-        format!("(declare-fun {} ({}) Bool)", name, args)
-    }).collect()
+pub(crate) fn generate_predicate_declarations(
+    #[allow(non_snake_case)] CHCs: &Vec<HornClause>,
+) -> Vec<String> {
+    let unique_predicates = extract_unique_predicates(CHCs);
+    let mut predicates = unique_predicates.iter().collect::<Vec<&PredicateRef>>();
+    predicates.sort_by(|a, b| a.name.cmp(b.name));
+    predicates
+        .iter()
+        .map(|PredicateRef { name, args }| {
+            let arg_types = (0..args.len())
+                .map(|_| "Int")
+                .collect::<Vec<&str>>()
+                .join(" ");
+            format!("(declare-fun {} ({}) Bool)", name, arg_types)
+        })
+        .collect()
 }
