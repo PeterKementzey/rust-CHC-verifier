@@ -77,7 +77,7 @@ fn example_clauses() -> Vec<HornClause> {
         ),
         body: vec![
             Expr::App(Operation::predicate("q2"), vec![Expr::var("y*"), Expr::var("y^"), Expr::var("x")]),
-            Expr::App(Operation::Equals, vec![Expr::var("y^^"), Expr::App(Operation::Plus, vec![Expr::var("y*"), Expr::Const(1)])]),
+            Expr::App(Operation::Equals, vec![Expr::var("y^^"), Expr::App(Operation::Add, vec![Expr::var("y*"), Expr::Const(1)])]),
         ],
     });
     CHCs.push(HornClause {

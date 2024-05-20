@@ -119,10 +119,19 @@ impl Display for HornClause {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Operation {
-    GreaterThan,
-    LessThan,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Modulo,
+    And,
+    Or,
     Equals,
-    Plus,
+    NotEquals,
+    LessThan,
+    LessEquals,
+    GreaterThan,
+    GreaterEquals,
     Predicate(String),
 }
 
@@ -135,10 +144,19 @@ impl Operation {
 impl Display for Operation {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Operation::GreaterThan => write!(f, ">"),
-            Operation::LessThan => write!(f, "<"),
+            Operation::Add => write!(f, "+"),
+            Operation::Sub => write!(f, "-"),
+            Operation::Mul => write!(f, "*"),
+            Operation::Div => write!(f, "/"),
+            Operation::Modulo => write!(f, "mod"),
+            Operation::And => write!(f, "and"),
+            Operation::Or => write!(f, "or"),
             Operation::Equals => write!(f, "="),
-            Operation::Plus => write!(f, "+"),
+            Operation::NotEquals => write!(f, "distinct"),
+            Operation::LessThan => write!(f, "<"),
+            Operation::LessEquals => write!(f, "<="),
+            Operation::GreaterThan => write!(f, ">"),
+            Operation::GreaterEquals => write!(f, ">="),
             Operation::Predicate(name) => write!(f, "{}", name),
         }
     }
