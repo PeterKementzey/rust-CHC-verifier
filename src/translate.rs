@@ -3,13 +3,15 @@ use syn::{Block, Expr, Item, Stmt};
 use crate::ast_downcasters;
 use crate::smtlib2::HornClause;
 
-pub(crate) fn translate_item(item: &Item) -> Vec<HornClause> {
+mod stmt_translations;
+mod utils;
+
+pub(crate) fn translate_item(item: &Item, #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>) {
     match item {
         Item::Fn(func) => {
             // Translate function
-            println!("Function: {}", func.sig.ident);
-            translate_block(&*func.block);
-            Vec::new()
+            println!("Item::Function: {}", func.sig.ident);
+            translate_block(&*func.block, CHCs);
         }
         // Add more cases as needed
         _ => {
@@ -21,21 +23,25 @@ pub(crate) fn translate_item(item: &Item) -> Vec<HornClause> {
     }
 }
 
-fn translate_stmt(stmt: &Stmt) {
+fn translate_stmt(stmt: &Stmt, #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>) {
     match stmt {
-        Stmt::Local(_local) => {
+        Stmt::Local(local) => {
             // Translate local variable declaration
-            println!("Local");
+            println!("Stmt::Local");
+            println!("Local variable: {:?}", local);
+            stmt_translations::translate_local_var_decl(local, CHCs);
         }
         // Stmt::Item(item) => {
+        //     println!("Stmt::Item");
         //     translate_item(item);
         // }
         Stmt::Expr(expr, _semicolon) => {
-            translate_expr(expr);
+            println!("Stmt::Expr");
+            translate_expr(expr, CHCs);
         }
         Stmt::Macro(_mac) => {
             // Translate macro
-            println!("Macro");
+            println!("Stmt::Macro");
         }
         // Add more cases as needed
         _ => {
@@ -47,24 +53,24 @@ fn translate_stmt(stmt: &Stmt) {
     }
 }
 
-fn translate_expr(expr: &Expr) {
+fn translate_expr(expr: &Expr, #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>) {
     match expr {
         // Expr::Call(_call) => {
         //     // Translate function call
-        //     println!("Function call");
+        //     println!("Expr::Function call");
         // }
         // Expr::Binary(_bin) => {
         //     // Translate binary operation
-        //     println!("Binary operation");
+        //     println!("Expr::Binary operation");
         // }
         Expr::Block(block) => {
             // Translate block
-            println!("Block");
-            translate_block(&block.block)
+            println!("Expr::Block");
+            translate_block(&block.block, CHCs)
         }
         Expr::Assign(_assign) => {
             // Translate assignment
-            println!("Assignment");
+            println!("Expr::Assignment");
         }
         // Add more cases as needed
         _ => {
@@ -76,8 +82,8 @@ fn translate_expr(expr: &Expr) {
     }
 }
 
-fn translate_block(block: &Block) {
+fn translate_block(block: &Block, #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>) {
     for stmt in &block.stmts {
-        translate_stmt(stmt);
+        translate_stmt(stmt, CHCs);
     }
 }

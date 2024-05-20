@@ -101,9 +101,9 @@ impl HornClause {
 impl Display for HornClause {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let vars: Vec<String> = self.free_vars().into_iter().collect();
-        write!(f, "(assert (forall (({} Int)", vars[0])?;
+        write!(f, "(assert (forall ((|{}| Int)", vars[0])?;
         for var in &vars[1..] {
-            write!(f, " ({} Int)", var)?;
+            write!(f, " (|{}| Int)", var)?;
         }
         write!(f, ") (=> (and")?;
         for expr in &self.body {
@@ -138,6 +138,12 @@ impl Display for Operation {
             Operation::Predicate(name) => write!(f, "{}", name),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct PredicateRef<'a> {
+    pub(crate) name: &'a String,
+    pub(crate) args: &'a Vec<Expr>,
 }
 
 pub(crate) fn extract_unique_predicates(clauses: &[HornClause]) -> HashMap<String, usize> {

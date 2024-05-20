@@ -138,10 +138,10 @@ fn main() {
     let mut CHCs: Vec<HornClause> = Vec::new();
     for item in ast.items {
         // TODO
-        CHCs = translate::translate_item(&item);
+        translate::translate_item(&item, &mut CHCs);
     }
 
-    CHCs = example_clauses(); // FIXME remove this line
+    // CHCs = example_clauses(); // FIXME remove this line
 
     let unique_predicates = extract_unique_predicates(&CHCs);
     let predicate_declarations = generate_predicate_declarations(&unique_predicates);
