@@ -4,7 +4,7 @@ use crate::ast_downcasters;
 use crate::smtlib2::HornClause;
 
 mod stmt_translations;
-mod utils;
+pub(crate) mod utils;
 
 pub(crate) fn translate_item(item: &Item, #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>) {
     match item {

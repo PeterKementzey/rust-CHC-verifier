@@ -5,7 +5,9 @@ use std::io::Read;
 use quote::quote;
 use syn::parse_file;
 
-use smtlib2::{Expr, generate_predicate_declarations, HornClause, Operation};
+use smtlib2::{Expr, HornClause, Operation};
+
+use crate::smtlib2::HornClauseVecOperations;
 
 mod ast_downcasters;
 mod smtlib2;
@@ -47,7 +49,7 @@ fn main2() -> Vec<HornClause> {
 #[allow(dead_code)]
 fn example_clauses() -> Vec<HornClause> {
     #[allow(non_snake_case)]
-    let mut CHCs: Vec<HornClause> = Vec::new();
+        let mut CHCs: Vec<HornClause> = Vec::new();
     CHCs.push(HornClause {
         head: Expr::App(Operation::predicate("q1"), vec![Expr::var("x")]),
         body: vec![Expr::App(
@@ -99,7 +101,7 @@ fn example_clauses() -> Vec<HornClause> {
         head: Expr::App(Operation::Equals, vec![Expr::var("x"), Expr::Const(43)]),
         body: vec![Expr::App(Operation::predicate("q4"), vec![Expr::var("x")])],
     });
-    
+
     return CHCs;
 }
 
@@ -133,14 +135,14 @@ fn main() {
     }
 
     #[allow(non_snake_case)]
-    let mut CHCs: Vec<HornClause> = Vec::new();
+        let mut CHCs: Vec<HornClause> = Vec::new();
     for item in ast.items {
         translate::translate_item(&item, &mut CHCs);
     }
 
     // CHCs = example_clauses(); // FIXME remove this line
 
-    let predicate_declarations = generate_predicate_declarations(&CHCs);
+    let predicate_declarations = CHCs.generate_predicate_declarations();
 
     {
         use std::io::{stdout, Write};
