@@ -3,6 +3,7 @@ use syn::{Block, Expr, Item, Stmt};
 use crate::ast_downcasters;
 use crate::smtlib2::HornClause;
 
+mod expr_translations;
 mod stmt_translations;
 pub(crate) mod utils;
 
@@ -68,9 +69,11 @@ fn translate_expr(expr: &Expr, #[allow(non_snake_case)] CHCs: &mut Vec<HornClaus
             println!("Expr::Block");
             translate_block(&block.block, CHCs)
         }
-        Expr::Assign(_assign) => {
+        Expr::Assign(assign) => {
             // Translate assignment
             println!("Expr::Assignment");
+            println!("Assignment: {:?}", assign);
+            expr_translations::translate_assignment(assign, CHCs);
         }
         // Add more cases as needed
         _ => {
