@@ -5,105 +5,13 @@ use std::io::Read;
 use quote::quote;
 use syn::parse_file;
 
-use smtlib2::{Expr, HornClause, Operation};
+use smtlib2::HornClause;
 
 use crate::smtlib2::Smtlib2Display;
 
 mod ast_downcasters;
 mod smtlib2;
 mod translate;
-
-#[allow(dead_code)]
-fn main2() -> Vec<HornClause> {
-    // Example usage
-    let x = Expr::var("x");
-    let y = Expr::var("y");
-    let z = Expr::var("z");
-
-    let expr1 = Expr::App(Operation::GreaterThan, vec![x.clone(), Expr::Const(0)]);
-    let expr2 = Expr::App(Operation::LessThan, vec![y.clone(), Expr::Const(10)]);
-    let head1 = Expr::App(
-        Operation::predicate("p"),
-        vec![x.clone(), y.clone(), z.clone()],
-    );
-    let body1 = vec![expr1, expr2];
-
-    let clause1 = HornClause {
-        head: head1,
-        body: body1,
-    };
-
-    let expr3 = Expr::App(Operation::Equals, vec![z.clone(), Expr::Const(5)]);
-    let head2 = Expr::App(Operation::predicate("q"), vec![z.clone()]);
-    let body2 = vec![expr3];
-
-    let clause2 = HornClause {
-        head: head2,
-        body: body2,
-    };
-
-    let clauses = vec![clause1, clause2];
-    return clauses;
-}
-
-#[allow(dead_code)]
-fn example_clauses() -> Vec<HornClause> {
-    #[allow(non_snake_case)]
-    let mut CHCs: Vec<HornClause> = Vec::new();
-    CHCs.push(HornClause {
-        head: Expr::App(Operation::predicate("q1"), vec![Expr::var("x")]),
-        body: vec![Expr::App(
-            Operation::Equals,
-            vec![Expr::var("x"), Expr::Const(42)],
-        )],
-    });
-    CHCs.push(HornClause {
-        head: Expr::App(
-            Operation::predicate("q2"),
-            vec![Expr::var("y*"), Expr::var("y^"), Expr::var("x^")],
-        ),
-        body: vec![
-            Expr::App(Operation::predicate("q1"), vec![Expr::var("x")]),
-            Expr::App(Operation::Equals, vec![Expr::var("y*"), Expr::var("x")]),
-            Expr::App(Operation::Equals, vec![Expr::var("x^"), Expr::var("y^")]),
-        ],
-    });
-    CHCs.push(HornClause {
-        head: Expr::App(
-            Operation::predicate("q3"),
-            vec![Expr::var("y^^"), Expr::var("y^"), Expr::var("x")],
-        ),
-        body: vec![
-            Expr::App(
-                Operation::predicate("q2"),
-                vec![Expr::var("y*"), Expr::var("y^"), Expr::var("x")],
-            ),
-            Expr::App(
-                Operation::Equals,
-                vec![
-                    Expr::var("y^^"),
-                    Expr::App(Operation::Add, vec![Expr::var("y*"), Expr::Const(1)]),
-                ],
-            ),
-        ],
-    });
-    CHCs.push(HornClause {
-        head: Expr::App(Operation::predicate("q4"), vec![Expr::var("x")]),
-        body: vec![
-            Expr::App(
-                Operation::predicate("q3"),
-                vec![Expr::var("y*"), Expr::var("y^"), Expr::var("x")],
-            ),
-            Expr::App(Operation::Equals, vec![Expr::var("y^"), Expr::var("y*")]),
-        ],
-    });
-    CHCs.push(HornClause {
-        head: Expr::App(Operation::Equals, vec![Expr::var("x"), Expr::Const(43)]),
-        body: vec![Expr::App(Operation::predicate("q4"), vec![Expr::var("x")])],
-    });
-
-    return CHCs;
-}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -135,28 +43,24 @@ fn main() {
     }
 
     #[allow(non_snake_case)]
-    let mut CHCs: Vec<HornClause> = Vec::new();
+        let mut CHCs: Vec<HornClause> = Vec::new();
     for item in ast.items {
         translate::translate_item(&item, &mut CHCs);
     }
 
-    // CHCs = example_clauses(); // FIXME remove this line
+    use std::io::{stdout, Write};
 
-    {
-        use std::io::{stdout, Write};
+    let smt2_file = File::create(format!("{}.smt2", &args[1][..args[1].len() - 3]));
 
-        let smt2_file = File::create(format!("{}.smt2", &args[1][..args[1].len() - 3]));
+    let output: Box<dyn Write> = match smt2_file {
+        Ok(file) => Box::new(file),
+        Err(e) => {
+            println!("Could not open/create smt2 file: {}", e);
+            println!("Writing to standard output:");
+            Box::new(stdout())
+        }
+    };
 
-        let output: Box<dyn Write> = match smt2_file {
-            Ok(file) => Box::new(file),
-            Err(e) => {
-                println!("Could not open/create smt2 file: {}", e);
-                println!("Writing to standard output:");
-                Box::new(stdout())
-            }
-        };
-
-        CHCs.write_as_smtlib2(output)
-            .expect("Could not write to output");
-    }
+    CHCs.write_as_smtlib2(output)
+        .expect("Could not write to output");
 }

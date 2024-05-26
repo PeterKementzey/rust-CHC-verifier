@@ -177,7 +177,7 @@ impl PredicateRef<'_> {
     pub(crate) fn ref_to<'a>(name: &'a String, args: &'a Vec<Expr>) -> PredicateRef<'a> {
         PredicateRef { name, args }
     }
-    
+
     fn stripped_args(&self) -> Vec<Expr> {
         self.args
             .iter()

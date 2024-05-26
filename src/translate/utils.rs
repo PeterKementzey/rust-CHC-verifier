@@ -49,12 +49,11 @@ impl _CHCSystem for Vec<HornClause> {
             |clause| {
                 if let App(Predicate(name), args) = &clause.head {
                     for arg in args {
-                        if let Var(_) = arg {
-                        } else {
+                        if let Var(_) = arg {} else {
                             panic!("Latest CHC head contains a non-variable argument");
                         }
                     }
-                    PredicateRef::ref_to(name, args )
+                    PredicateRef::ref_to(name, args)
                 } else {
                     panic!("Latest CHC head is not a predicate")
                 }

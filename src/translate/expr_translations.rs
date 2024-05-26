@@ -39,9 +39,9 @@ fn translate_expr(expr: &syn::Expr) -> smtlib2::Expr {
         syn::Expr::Path(path) => Var(path.path.segments[0].ident.to_string()),
         // Integer constant
         syn::Expr::Lit(syn::ExprLit {
-            lit: syn::Lit::Int(lit_int),
-            ..
-        }) => Const(lit_int.base10_parse::<i32>().unwrap()),
+                           lit: syn::Lit::Int(lit_int),
+                           ..
+                       }) => Const(lit_int.base10_parse::<i32>().unwrap()),
 
         _ => panic!("Unsupported syn expression, got: {:?}", expr),
     }
