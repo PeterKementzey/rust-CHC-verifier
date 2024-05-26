@@ -2,8 +2,9 @@ use syn::ExprAssign;
 
 use crate::smtlib2;
 use crate::smtlib2::Expr::*;
+use crate::smtlib2::HornClause;
 use crate::smtlib2::Operation::*;
-use crate::smtlib2::{HornClause, HornClauseVecOperations};
+use crate::translate::utils::CHCSystem;
 
 fn translate_expr(expr: &syn::Expr) -> smtlib2::Expr {
     match expr {

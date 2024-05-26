@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 use std::fmt::{self, Display, Formatter};
+use std::io::Write;
 
-use crate::smtlib2::Expr::{App, Var, Const, ConstTrue};
+use crate::smtlib2::Expr::{App, Const, ConstTrue, Var};
 use crate::smtlib2::Operation::Predicate;
-use crate::translate::utils;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Expr {
@@ -141,7 +141,7 @@ pub(crate) enum Operation {
 }
 
 impl Operation {
-    pub fn predicate<S: Into<String>>(name: S) -> Self {
+    pub(crate) fn predicate<S: Into<String>>(name: S) -> Self {
         Predicate(name.into())
     }
 }
@@ -169,12 +169,16 @@ impl Display for Operation {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct PredicateRef<'a> {
-    pub(crate) name: &'a String,
+    name: &'a String,
     args: &'a Vec<Expr>,
 }
 
 impl PredicateRef<'_> {
-    fn args_for_next_query(&self) -> Vec<Expr> {
+    pub(crate) fn ref_to<'a>(name: &'a String, args: &'a Vec<Expr>) -> PredicateRef<'a> {
+        PredicateRef { name, args }
+    }
+    
+    fn stripped_args(&self) -> Vec<Expr> {
         self.args
             .iter()
             .map(|arg| match arg {
@@ -190,21 +194,36 @@ impl PredicateRef<'_> {
             .collect()
     }
 
-    pub(crate) fn to_enum(&self) -> Expr {
-        App(Predicate(self.name.clone()), self.args_for_next_query())
+    pub(crate) fn to_stripped_enum(&self) -> Expr {
+        App(Predicate(self.name.clone()), self.stripped_args())
     }
 }
 
-pub(crate) trait HornClauseVecOperations<'a> {
-    fn _extract_unique_predicates(&self) -> Vec<PredicateRef<'_>>;
-    fn generate_predicate_declarations(&self) -> Vec<String>;
-    #[allow(non_snake_case)]
-    fn create_next_CHC(&self) -> HornClause;
-    fn get_latest_query(&self) -> Option<PredicateRef>;
+pub(crate) trait Smtlib2Display {
+    fn write_as_smtlib2(&self, output: Box<dyn Write>) -> std::io::Result<()>;
 }
 
-impl<'a> HornClauseVecOperations<'a> for Vec<HornClause> {
-    fn _extract_unique_predicates(&self) -> Vec<PredicateRef<'_>> {
+impl Smtlib2Display for Vec<HornClause> {
+    fn write_as_smtlib2(&self, mut output: Box<dyn Write>) -> std::io::Result<()> {
+        writeln!(output, "(set-logic HORN)")?;
+        for decl in self.generate_predicate_declarations() {
+            writeln!(output, "{}", decl)?;
+        }
+        for clause in self {
+            writeln!(output, "{}", clause)?;
+        }
+        writeln!(output, "(check-sat)")?;
+        writeln!(output, "(get-model)")
+    }
+}
+
+trait CHCSystem {
+    fn extract_unique_predicates(&self) -> Vec<PredicateRef<'_>>;
+    fn generate_predicate_declarations(&self) -> Vec<String>;
+}
+
+impl CHCSystem for Vec<HornClause> {
+    fn extract_unique_predicates(&self) -> Vec<PredicateRef<'_>> {
         let mut unique_predicates = HashSet::new();
         for clause in self {
             clause.extract_predicates(&mut unique_predicates);
@@ -218,7 +237,7 @@ impl<'a> HornClauseVecOperations<'a> for Vec<HornClause> {
     }
 
     fn generate_predicate_declarations(&self) -> Vec<String> {
-        let mut predicates = self._extract_unique_predicates();
+        let mut predicates = self.extract_unique_predicates();
         predicates.sort_by(|a, b| a.name.cmp(b.name));
         predicates
             .iter()
@@ -230,44 +249,5 @@ impl<'a> HornClauseVecOperations<'a> for Vec<HornClause> {
                 format!("(declare-fun {} ({}) Bool)", name, arg_types)
             })
             .collect()
-    }
-
-    #[allow(non_snake_case)]
-    fn create_next_CHC(&self) -> HornClause {
-        let prev_query = self.get_latest_query();
-        let query_params = prev_query
-            .as_ref()
-            .map(|query| query.args_for_next_query())
-            .unwrap_or_else(Vec::new);
-
-        let new_query_name = unsafe { utils::get_new_query_name() };
-        let new_query = App(Predicate(new_query_name), query_params);
-
-        let body = prev_query
-            .map(|query| vec![query.to_enum()])
-            .unwrap_or_else(Vec::new);
-
-        HornClause {
-            head: new_query,
-            body,
-        }
-    }
-
-    fn get_latest_query(&self) -> Option<PredicateRef> {
-        self.last().map({
-            |clause| {
-                if let App(Predicate(name), args) = &clause.head {
-                    for arg in args {
-                        if let Var(_) = arg {
-                        } else {
-                            panic!("Latest CHC head contains a non-variable argument");
-                        }
-                    }
-                    PredicateRef { name, args }
-                } else {
-                    panic!("Latest CHC head is not a predicate")
-                }
-            }
-        })
     }
 }

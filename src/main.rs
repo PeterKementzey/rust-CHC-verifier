@@ -7,7 +7,7 @@ use syn::parse_file;
 
 use smtlib2::{Expr, HornClause, Operation};
 
-use crate::smtlib2::HornClauseVecOperations;
+use crate::smtlib2::Smtlib2Display;
 
 mod ast_downcasters;
 mod smtlib2;
@@ -49,7 +49,7 @@ fn main2() -> Vec<HornClause> {
 #[allow(dead_code)]
 fn example_clauses() -> Vec<HornClause> {
     #[allow(non_snake_case)]
-        let mut CHCs: Vec<HornClause> = Vec::new();
+    let mut CHCs: Vec<HornClause> = Vec::new();
     CHCs.push(HornClause {
         head: Expr::App(Operation::predicate("q1"), vec![Expr::var("x")]),
         body: vec![Expr::App(
@@ -135,21 +135,19 @@ fn main() {
     }
 
     #[allow(non_snake_case)]
-        let mut CHCs: Vec<HornClause> = Vec::new();
+    let mut CHCs: Vec<HornClause> = Vec::new();
     for item in ast.items {
         translate::translate_item(&item, &mut CHCs);
     }
 
     // CHCs = example_clauses(); // FIXME remove this line
 
-    let predicate_declarations = CHCs.generate_predicate_declarations();
-
     {
         use std::io::{stdout, Write};
 
         let smt2_file = File::create(format!("{}.smt2", &args[1][..args[1].len() - 3]));
 
-        let mut output: Box<dyn Write> = match smt2_file {
+        let output: Box<dyn Write> = match smt2_file {
             Ok(file) => Box::new(file),
             Err(e) => {
                 println!("Could not open/create smt2 file: {}", e);
@@ -158,17 +156,7 @@ fn main() {
             }
         };
 
-        writeln!(output, "(set-logic HORN)").expect("Unable to write to file");
-
-        for decl in &predicate_declarations {
-            writeln!(output, "{}", decl).expect("Unable to write to file");
-        }
-
-        for clause in &CHCs {
-            writeln!(output, "{}", clause).expect("Unable to write to file");
-        }
-
-        writeln!(output, "(check-sat)").expect("Unable to write to file");
-        writeln!(output, "(get-model)").expect("Unable to write to file");
+        CHCs.write_as_smtlib2(output)
+            .expect("Could not write to output");
     }
 }

@@ -1,8 +1,9 @@
 use syn::PatIdent;
 
 use crate::smtlib2::Expr::*;
+use crate::smtlib2::HornClause;
 use crate::smtlib2::Operation::*;
-use crate::smtlib2::{HornClause, HornClauseVecOperations};
+use crate::translate::utils::CHCSystem;
 
 pub(crate) fn translate_local_var_decl(
     local: &syn::Local,
