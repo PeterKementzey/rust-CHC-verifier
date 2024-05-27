@@ -14,10 +14,6 @@ pub(crate) enum Expr {
 }
 
 impl Expr {
-    pub fn var<S: Into<String>>(name: S) -> Self {
-        Var(name.into())
-    }
-
     fn extract_predicates<'a>(&'a self, predicates: &mut HashSet<PredicateRef<'a>>) {
         match self {
             App(Predicate(name), args) => {
@@ -85,12 +81,12 @@ impl HornClause {
 
     fn collect_free_vars_expr(&self, expr: &Expr, vars: &mut HashSet<String>) {
         match expr {
-            Expr::Var(name) => {
+            Var(name) => {
                 vars.insert(name.clone());
             }
-            Expr::Const(_) => {}
-            Expr::ConstTrue => {}
-            Expr::App(_, args) => {
+            Const(_) => {}
+            ConstTrue => {}
+            App(_, args) => {
                 for arg in args {
                     self.collect_free_vars_expr(arg, vars);
                 }
@@ -138,12 +134,6 @@ pub(crate) enum Operation {
     GreaterThan,
     GreaterEquals,
     Predicate(String),
-}
-
-impl Operation {
-    pub(crate) fn predicate<S: Into<String>>(name: S) -> Self {
-        Predicate(name.into())
-    }
 }
 
 impl Display for Operation {
@@ -228,18 +218,13 @@ impl CHCSystem for Vec<HornClause> {
         for clause in self {
             clause.extract_predicates(&mut unique_predicates);
         }
-        let mut predicates = unique_predicates
-            .iter()
-            .map(|x| x.clone())
-            .collect::<Vec<PredicateRef>>();
+        let mut predicates: Vec<PredicateRef> = unique_predicates.into_iter().collect();
         predicates.sort_by(|a, b| a.name.cmp(b.name));
         predicates
     }
 
     fn generate_predicate_declarations(&self) -> Vec<String> {
-        let mut predicates = self.extract_unique_predicates();
-        predicates.sort_by(|a, b| a.name.cmp(b.name));
-        predicates
+        self.extract_unique_predicates()
             .iter()
             .map(|PredicateRef { name, args }| {
                 let arg_types = (0..args.len())

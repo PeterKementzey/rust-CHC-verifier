@@ -39,9 +39,9 @@ fn translate_expr(expr: &syn::Expr) -> smtlib2::Expr {
         syn::Expr::Path(path) => Var(path.path.segments[0].ident.to_string()),
         // Integer constant
         syn::Expr::Lit(syn::ExprLit {
-                           lit: syn::Lit::Int(lit_int),
-                           ..
-                       }) => Const(lit_int.base10_parse::<i32>().unwrap()),
+            lit: syn::Lit::Int(lit_int),
+            ..
+        }) => Const(lit_int.base10_parse::<i32>().unwrap()),
 
         _ => panic!("Unsupported syn expression, got: {:?}", expr),
     }
@@ -56,10 +56,9 @@ pub(crate) fn translate_assignment(
     }
 
     let (lhs, new_lhs) = {
-        let variable_name = if let Var(name) = translate_expr(&assign.left) {
-            name
-        } else {
-            panic!("Assignment left-hand side is not a variable")
+        let variable_name = match translate_expr(&assign.left) {
+            Var(name) => name,
+            _ => panic!("Assignment left-hand side is not a variable"),
         };
         let mut new_name = variable_name.clone();
         new_name.push('\''); // variable_name'
@@ -69,10 +68,9 @@ pub(crate) fn translate_assignment(
     let mut new_clause = CHCs.create_next_CHC();
 
     if let App(Predicate(_), new_query_params) = &mut new_clause.head {
-        if let Some(lhs_var_index) = new_query_params.iter().position(|var| *var == lhs) {
-            new_query_params[lhs_var_index] = new_lhs.clone();
-        } else {
-            panic!("Assignment left-hand side is not a query parameter")
+        match new_query_params.iter().position(|var| *var == lhs) {
+            Some(lhs_var_index) => new_query_params[lhs_var_index] = new_lhs.clone(),
+            _ => panic!("Assignment left-hand side is not a query parameter"),
         }
     }
 
