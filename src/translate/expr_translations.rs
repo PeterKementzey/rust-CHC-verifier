@@ -6,12 +6,12 @@ use crate::smtlib2::HornClause;
 use crate::smtlib2::Operation::*;
 use crate::translate::utils::CHCSystem;
 
-fn translate_expr(expr: &syn::Expr) -> smtlib2::Expr {
+pub(crate) fn translate_syn_expr(expr: &syn::Expr) -> smtlib2::Expr {
     match expr {
         // Binary operation
         syn::Expr::Binary(binary) => {
-            let left = translate_expr(&binary.left);
-            let right = translate_expr(&binary.right);
+            let left = translate_syn_expr(&binary.left);
+            let right = translate_syn_expr(&binary.right);
             match binary.op {
                 syn::BinOp::Add(_) => App(Add, vec![left, right]),
                 syn::BinOp::Sub(_) => App(Sub, vec![left, right]),
@@ -56,7 +56,7 @@ pub(crate) fn translate_assignment(
     }
 
     let (lhs, new_lhs) = {
-        let variable_name = match translate_expr(&assign.left) {
+        let variable_name = match translate_syn_expr(&assign.left) {
             Var(name) => name,
             _ => panic!("Assignment left-hand side is not a variable"),
         };
@@ -74,7 +74,7 @@ pub(crate) fn translate_assignment(
         }
     }
 
-    let rhs: smtlib2::Expr = translate_expr(&assign.right);
+    let rhs: smtlib2::Expr = translate_syn_expr(&assign.right);
     let assignment: smtlib2::Expr = App(Equals, vec![new_lhs, rhs]);
 
     new_clause.body.push(assignment);
