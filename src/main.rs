@@ -11,6 +11,7 @@ use crate::smtlib2::Smtlib2Display;
 
 mod smtlib2;
 mod translate;
+mod drop_elaboration;
 mod syn_utils;
 
 fn main() {
