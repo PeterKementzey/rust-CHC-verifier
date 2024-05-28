@@ -2,7 +2,7 @@ use crate::smtlib2;
 use crate::smtlib2::Expr::*;
 use crate::smtlib2::HornClause;
 use crate::smtlib2::Operation::*;
-use crate::syn_utils::get_local_var_name;
+use crate::syn_utils::{get_assert_condition, get_local_var_name, get_macro_name};
 use crate::translate::expr_translations::translate_syn_expr;
 use crate::translate::utils::CHCSystem;
 
@@ -43,13 +43,12 @@ pub(super) fn translate_assertion(
     stmt_macro: &syn::StmtMacro,
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
-    let macro_name = stmt_macro.mac.path.get_ident().expect("Could not get macro name").to_string();
+    let macro_name = get_macro_name(&stmt_macro);
     if macro_name != "assert" {
         panic!("Unsupported macro name: {}", macro_name);
     }
 
-    let condition: syn::Expr = syn::parse2(stmt_macro.mac.tokens.clone())
-        .expect("Failed to parse macro tokens as expression");
+    let condition: syn::Expr = get_assert_condition(&stmt_macro);
     let condition: smtlib2::Expr = translate_syn_expr(&condition);
 
     let last_query = CHCs
