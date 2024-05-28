@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use syn::{visit::Visit, Block, Local};
+use syn::{visit::Visit, Block, Local, StmtMacro};
 use syn::{Expr, Stmt};
 
-use crate::syn_utils::{get_local_var_name, get_var_name};
+use crate::syn_utils::{get_assert_condition, get_local_var_name, get_macro_name, get_var_name};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum ExtendedStmt {
@@ -60,6 +60,18 @@ impl<'ast> Visit<'ast> for VarUsageCollector {
     fn visit_stmt(&mut self, stmt: &'ast Stmt) {
         syn::visit::visit_stmt(self, stmt);
         self.current_stmt_index += 1;
+    }
+
+    fn visit_stmt_macro(&mut self, stmt_macro: &'ast StmtMacro) {
+        let macro_name = get_macro_name(&stmt_macro);
+        if macro_name == "assert" {
+            let condition = get_assert_condition(&stmt_macro);
+            self.visit_expr(&condition);
+        } else {
+            panic!("Unsupported macro in drop elaboration: {}", macro_name);
+        }
+
+        syn::visit::visit_stmt_macro(self, stmt_macro);
     }
 }
 
