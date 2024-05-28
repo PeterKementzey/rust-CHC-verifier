@@ -1,6 +1,5 @@
 use syn::{Block, Expr, Item, Stmt};
 
-use crate::ast_downcasters;
 use crate::smtlib2::HornClause;
 use crate::translate::stmt_translations::translate_assertion;
 
@@ -17,10 +16,7 @@ pub(crate) fn translate_item(item: &Item, #[allow(non_snake_case)] CHCs: &mut Ve
         }
         // Add more cases as needed
         _ => {
-            panic!(
-                "Unsupported item type: {}",
-                ast_downcasters::downcast_item(item)
-            );
+            panic!("Unsupported item type: {:?}", item);
         }
     }
 }
@@ -47,10 +43,7 @@ fn translate_stmt(stmt: &Stmt, #[allow(non_snake_case)] CHCs: &mut Vec<HornClaus
         }
         // Add more cases as needed
         _ => {
-            panic!(
-                "Unsupported statement type: {}",
-                ast_downcasters::downcast_statement(stmt)
-            );
+            panic!("Unsupported statement type: {:?}", stmt);
         }
     }
 }
@@ -78,10 +71,7 @@ fn translate_expr(expr: &Expr, #[allow(non_snake_case)] CHCs: &mut Vec<HornClaus
         }
         // Add more cases as needed
         _ => {
-            panic!(
-                "Unsupported expression type: {}",
-                ast_downcasters::downcast_expression(expr)
-            );
+            panic!("Unsupported expression type: {:?}", expr);
         }
     }
 }

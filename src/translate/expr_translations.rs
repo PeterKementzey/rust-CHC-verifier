@@ -6,7 +6,7 @@ use crate::smtlib2::HornClause;
 use crate::smtlib2::Operation::*;
 use crate::translate::utils::CHCSystem;
 
-pub(crate) fn translate_syn_expr(expr: &syn::Expr) -> smtlib2::Expr {
+pub(super) fn translate_syn_expr(expr: &syn::Expr) -> smtlib2::Expr {
     match expr {
         // Binary operation
         syn::Expr::Binary(binary) => {
@@ -47,7 +47,7 @@ pub(crate) fn translate_syn_expr(expr: &syn::Expr) -> smtlib2::Expr {
     }
 }
 
-pub(crate) fn translate_assignment(
+pub(super) fn translate_assignment(
     assign: &ExprAssign,
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {

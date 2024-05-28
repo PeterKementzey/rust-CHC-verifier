@@ -9,7 +9,6 @@ use smtlib2::HornClause;
 
 use crate::smtlib2::Smtlib2Display;
 
-mod ast_downcasters;
 mod smtlib2;
 mod translate;
 
@@ -43,7 +42,7 @@ fn main() {
     }
 
     #[allow(non_snake_case)]
-        let mut CHCs: Vec<HornClause> = Vec::new();
+    let mut CHCs: Vec<HornClause> = Vec::new();
     for item in ast.items {
         translate::translate_item(&item, &mut CHCs);
     }

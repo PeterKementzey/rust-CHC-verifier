@@ -9,7 +9,7 @@ unsafe fn get_new_query_name() -> String {
     format!("q{}", QUERY_COUNT)
 }
 
-pub(crate) trait CHCSystem {
+pub(super) trait CHCSystem {
     #[allow(non_snake_case)]
     fn create_next_CHC(&self) -> HornClause;
 

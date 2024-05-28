@@ -5,7 +5,7 @@ use crate::smtlib2::Operation::*;
 use crate::translate::expr_translations::translate_syn_expr;
 use crate::translate::utils::CHCSystem;
 
-pub(crate) fn translate_local_var_decl(
+pub(super) fn translate_local_var_decl(
     local: &syn::Local,
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
@@ -42,7 +42,7 @@ pub(crate) fn translate_local_var_decl(
     CHCs.push(new_clause);
 }
 
-pub(crate) fn translate_assertion(
+pub(super) fn translate_assertion(
     stmt_macro: &syn::StmtMacro,
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
