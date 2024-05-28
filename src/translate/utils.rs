@@ -12,6 +12,8 @@ unsafe fn get_new_query_name() -> String {
 pub(crate) trait CHCSystem {
     #[allow(non_snake_case)]
     fn create_next_CHC(&self) -> HornClause;
+
+    fn get_latest_query(&self) -> Option<PredicateRef>;
 }
 
 impl CHCSystem for Vec<HornClause> {
@@ -37,26 +39,19 @@ impl CHCSystem for Vec<HornClause> {
             body,
         }
     }
-}
 
-trait _CHCSystem {
-    fn get_latest_query(&self) -> Option<PredicateRef>;
-}
-
-impl _CHCSystem for Vec<HornClause> {
     fn get_latest_query(&self) -> Option<PredicateRef> {
-        self.last().map({
-            |clause| {
-                if let App(Predicate(name), args) = &clause.head {
-                    for arg in args {
-                        if let Var(_) = arg {} else {
-                            panic!("Latest CHC head contains a non-variable argument");
-                        }
+        self.iter().rev().find_map(|clause| {
+            if let App(Predicate(name), args) = &clause.head {
+                for arg in args {
+                    if let Var(_) = arg {
+                    } else {
+                        panic!("Latest CHC head contains a non-variable argument");
                     }
-                    PredicateRef::ref_to(name, args)
-                } else {
-                    panic!("Latest CHC head is not a predicate")
                 }
+                Some(PredicateRef::ref_to(name, args))
+            } else {
+                None
             }
         })
     }

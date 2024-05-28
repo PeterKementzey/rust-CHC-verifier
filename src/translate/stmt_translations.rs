@@ -1,8 +1,9 @@
+use crate::smtlib2;
 use crate::smtlib2::Expr::*;
 use crate::smtlib2::HornClause;
 use crate::smtlib2::Operation::*;
-use crate::translate::utils::CHCSystem;
 use crate::translate::expr_translations::translate_syn_expr;
+use crate::translate::utils::CHCSystem;
 
 pub(crate) fn translate_local_var_decl(
     local: &syn::Local,
@@ -38,5 +39,28 @@ pub(crate) fn translate_local_var_decl(
         new_clause.body.push(assignment);
     }
 
+    CHCs.push(new_clause);
+}
+
+pub(crate) fn translate_assertion(
+    stmt_macro: &syn::StmtMacro,
+    #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
+) {
+    let macro_name = stmt_macro.mac.path.segments[0].ident.to_string();
+    if macro_name != "assert" {
+        panic!("Unsupported macro name: {}", macro_name);
+    }
+
+    let condition: syn::Expr = syn::parse2(stmt_macro.mac.tokens.clone())
+        .expect("Failed to parse macro tokens as expression");
+    let condition: smtlib2::Expr = translate_syn_expr(&condition);
+
+    let last_query = CHCs
+        .get_latest_query()
+        .expect("No queries to assert against");
+    let new_clause = HornClause {
+        head: condition,
+        body: vec![last_query.to_stripped_enum()],
+    };
     CHCs.push(new_clause);
 }

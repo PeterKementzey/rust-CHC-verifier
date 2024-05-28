@@ -2,6 +2,7 @@ use syn::{Block, Expr, Item, Stmt};
 
 use crate::ast_downcasters;
 use crate::smtlib2::HornClause;
+use crate::translate::stmt_translations::translate_assertion;
 
 mod expr_translations;
 mod stmt_translations;
@@ -29,7 +30,6 @@ fn translate_stmt(stmt: &Stmt, #[allow(non_snake_case)] CHCs: &mut Vec<HornClaus
         Stmt::Local(local) => {
             // Translate local variable declaration
             println!("Stmt::Local");
-            println!("Local variable: {:?}", local);
             stmt_translations::translate_local_var_decl(local, CHCs);
         }
         // Stmt::Item(item) => {
@@ -40,9 +40,10 @@ fn translate_stmt(stmt: &Stmt, #[allow(non_snake_case)] CHCs: &mut Vec<HornClaus
             println!("Stmt::Expr");
             translate_expr(expr, CHCs);
         }
-        Stmt::Macro(_mac) => {
+        Stmt::Macro(mac) => {
             // Translate macro
             println!("Stmt::Macro");
+            translate_assertion(mac, CHCs);
         }
         // Add more cases as needed
         _ => {
