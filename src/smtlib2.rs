@@ -2,6 +2,8 @@ use std::collections::HashSet;
 use std::fmt::{self, Display, Formatter};
 use std::io::Write;
 
+use itertools::sorted;
+
 use crate::smtlib2::Expr::{App, Const, ConstTrue, Var};
 use crate::smtlib2::Operation::Predicate;
 
@@ -104,7 +106,7 @@ impl HornClause {
 
 impl Display for HornClause {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let vars: Vec<String> = self.free_vars().into_iter().collect();
+        let vars: Vec<String> = sorted(self.free_vars()).collect();
         write!(f, "(assert (forall ((|{}| Int)", vars[0])?;
         for var in &vars[1..] {
             write!(f, " (|{}| Int)", var)?;
