@@ -4,6 +4,7 @@ use crate::smtlib2;
 use crate::smtlib2::Expr::*;
 use crate::smtlib2::HornClause;
 use crate::smtlib2::Operation::*;
+use crate::syn_utils::get_var_name;
 use crate::translate::utils::CHCSystem;
 
 pub(super) fn translate_syn_expr(expr: &syn::Expr) -> smtlib2::Expr {
@@ -36,7 +37,7 @@ pub(super) fn translate_syn_expr(expr: &syn::Expr) -> smtlib2::Expr {
             }
         }
         // Variable
-        syn::Expr::Path(path) => Var(path.path.segments[0].ident.to_string()),
+        syn::Expr::Path(path) => Var(get_var_name(&path)),
         // Integer constant
         syn::Expr::Lit(syn::ExprLit {
             lit: syn::Lit::Int(lit_int),

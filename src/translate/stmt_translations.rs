@@ -2,6 +2,7 @@ use crate::smtlib2;
 use crate::smtlib2::Expr::*;
 use crate::smtlib2::HornClause;
 use crate::smtlib2::Operation::*;
+use crate::syn_utils::get_local_var_name;
 use crate::translate::expr_translations::translate_syn_expr;
 use crate::translate::utils::CHCSystem;
 
@@ -9,11 +10,7 @@ pub(super) fn translate_local_var_decl(
     local: &syn::Local,
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
-    let new_var_name = match &local.pat {
-        syn::Pat::Ident(syn::PatIdent { ident, .. }) => ident.to_string(),
-        _ => panic!("Local variable declaration pattern is not an identifier"),
-    };
-    let new_query_param = Var(new_var_name);
+    let new_query_param = Var(get_local_var_name(&local));
 
     let mut new_clause = CHCs.create_next_CHC();
     if let Some(App(Predicate(_), prev_query_params)) = &new_clause.body.get(0) {
@@ -46,7 +43,7 @@ pub(super) fn translate_assertion(
     stmt_macro: &syn::StmtMacro,
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
-    let macro_name = stmt_macro.mac.path.segments[0].ident.to_string();
+    let macro_name = stmt_macro.mac.path.get_ident().expect("Could not get macro name").to_string();
     if macro_name != "assert" {
         panic!("Unsupported macro name: {}", macro_name);
     }

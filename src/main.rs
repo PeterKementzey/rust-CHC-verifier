@@ -11,6 +11,7 @@ use crate::smtlib2::Smtlib2Display;
 
 mod smtlib2;
 mod translate;
+mod syn_utils;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
