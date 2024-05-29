@@ -9,10 +9,10 @@ use smtlib2::HornClause;
 
 use crate::smtlib2::Smtlib2Display;
 
-mod smtlib2;
-mod translate;
 mod drop_elaboration;
+mod smtlib2;
 mod syn_utils;
+mod translate;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

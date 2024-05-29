@@ -56,7 +56,7 @@ pub(super) fn translate_assignment(
         panic!("Assignment reached with no CHCs")
     }
 
-    let (lhs, new_lhs) = {
+    let (lhs, updated_lhs) = {
         let variable_name = match translate_syn_expr(&assign.left) {
             Var(name) => name,
             _ => panic!("Assignment left-hand side is not a variable"),
@@ -68,16 +68,10 @@ pub(super) fn translate_assignment(
 
     let mut new_clause = CHCs.create_next_CHC();
 
-    if let App(Predicate(_), new_query_params) = &mut new_clause.head {
-        match new_query_params.iter().position(|var| *var == lhs) {
-            Some(lhs_var_index) => new_query_params[lhs_var_index] = new_lhs.clone(),
-            _ => panic!("Assignment left-hand side is not a query parameter"),
-        }
-    }
-
     let rhs: smtlib2::Expr = translate_syn_expr(&assign.right);
-    let assignment: smtlib2::Expr = App(Equals, vec![new_lhs, rhs]);
-
+    let assignment: smtlib2::Expr = App(Equals, vec![updated_lhs.clone(), rhs]);
     new_clause.body.push(assignment);
+    new_clause.replace_head_query_param(&lhs, updated_lhs);
+
     CHCs.push(new_clause);
 }

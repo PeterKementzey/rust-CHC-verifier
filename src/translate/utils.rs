@@ -1,3 +1,4 @@
+use crate::smtlib2;
 use crate::smtlib2::Expr::*;
 use crate::smtlib2::Operation::*;
 use crate::smtlib2::{HornClause, PredicateRef};
@@ -44,8 +45,7 @@ impl CHCSystem for Vec<HornClause> {
         self.iter().rev().find_map(|clause| {
             if let App(Predicate(name), args) = &clause.head {
                 for arg in args {
-                    if let Var(_) = arg {
-                    } else {
+                    if let Var(_) = arg {} else {
                         panic!("Latest CHC head contains a non-variable argument");
                     }
                 }
@@ -54,5 +54,38 @@ impl CHCSystem for Vec<HornClause> {
                 None
             }
         })
+    }
+}
+
+impl HornClause {
+    pub(crate) fn insert_head_query_param(&mut self, new_query_param: smtlib2::Expr) {
+        if let App(Predicate(_), query_params) = &mut self.head {
+            query_params.push(new_query_param);
+        } else {
+            panic!("Cannot insert if head of CHC is not a predicate");
+        }
+    }
+
+    pub(crate) fn replace_head_query_param(
+        &mut self,
+        old_query_param: &smtlib2::Expr,
+        new_query_param: smtlib2::Expr,
+    ) {
+        if let App(Predicate(_), query_params) = &mut self.head {
+            match query_params.iter().position(|var| *var == *old_query_param) {
+                Some(old_var_index) => query_params[old_var_index] = new_query_param,
+                _ => panic!("Query parameter not found in latest query"),
+            }
+        } else {
+            panic!("Cannot replace if head of CHC is not a predicate");
+        }
+    }
+
+    pub(crate) fn head_contains(&self, var: &smtlib2::Expr) -> bool {
+        if let App(Predicate(_), query_params) = &self.head {
+            query_params.contains(var)
+        } else {
+            panic!("Cannot check if head of CHC is not a predicate");
+        }
     }
 }

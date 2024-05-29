@@ -13,15 +13,11 @@ pub(super) fn translate_local_var_decl(
     let new_query_param = Var(get_local_var_name(&local));
 
     let mut new_clause = CHCs.create_next_CHC();
-    if let Some(App(Predicate(_), prev_query_params)) = &new_clause.body.get(0) {
-        if prev_query_params.contains(&new_query_param) {
-            panic!("New query parameter name already exists in latest query")
-        }
+    if new_clause.head_contains(&new_query_param) {
+        panic!("New query parameter name already exists in latest query")
     }
 
-    if let App(Predicate(_), new_query_params) = &mut new_clause.head {
-        new_query_params.push(new_query_param.clone());
-    }
+    new_clause.insert_head_query_param(new_query_param.clone());
 
     let rhs = local.init.as_ref().map(
         |syn::LocalInit {
@@ -39,7 +35,10 @@ pub(super) fn translate_local_var_decl(
     CHCs.push(new_clause);
 }
 
-pub(super) fn translate_drop(var_name: &String, #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>) {
+pub(super) fn translate_drop(
+    var_name: &String,
+    #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
+) {
     let mut new_clause = CHCs.create_next_CHC();
     if let App(Predicate(_), new_query_params) = &mut new_clause.head {
         let var = Var(var_name.clone());

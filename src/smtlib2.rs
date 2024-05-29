@@ -75,14 +75,14 @@ pub(crate) struct HornClause {
 impl HornClause {
     fn free_vars(&self) -> HashSet<String> {
         let mut vars = HashSet::new();
-        self.collect_free_vars_expr(&self.head, &mut vars);
+        self._collect_free_vars_from_expr(&self.head, &mut vars);
         for expr in &self.body {
-            self.collect_free_vars_expr(expr, &mut vars);
+            self._collect_free_vars_from_expr(expr, &mut vars);
         }
         vars
     }
 
-    fn collect_free_vars_expr(&self, expr: &Expr, vars: &mut HashSet<String>) {
+    fn _collect_free_vars_from_expr(&self, expr: &Expr, vars: &mut HashSet<String>) {
         match expr {
             Var(name) => {
                 vars.insert(name.clone());
@@ -91,7 +91,7 @@ impl HornClause {
             ConstTrue => {}
             App(_, args) => {
                 for arg in args {
-                    self.collect_free_vars_expr(arg, vars);
+                    self._collect_free_vars_from_expr(arg, vars);
                 }
             }
         }
