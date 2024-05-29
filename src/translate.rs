@@ -4,7 +4,7 @@ use crate::drop_elaboration::ExtendedStmt::Stmt as ExStmt;
 use crate::drop_elaboration::{perform_drop_elaboration, ExtendedStmt};
 use crate::smtlib2::HornClause;
 use crate::syn_utils::get_local_var_name;
-use crate::translate::stmt_translations::translate_assertion;
+use crate::translate::stmt_translations::{translate_assertion, translate_drop};
 
 mod expr_translations;
 mod stmt_translations;
@@ -50,6 +50,7 @@ fn translate_stmt(stmt: &ExtendedStmt, #[allow(non_snake_case)] CHCs: &mut Vec<H
         ExtendedStmt::Drop(var) => {
             // Drop
             println!("ExStmt::Drop: {}", var);
+            translate_drop(var, CHCs);
         }
         // Add more cases as needed
         _ => {

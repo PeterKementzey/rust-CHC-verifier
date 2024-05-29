@@ -39,6 +39,18 @@ pub(super) fn translate_local_var_decl(
     CHCs.push(new_clause);
 }
 
+pub(super) fn translate_drop(var_name: &String, #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>) {
+    let mut new_clause = CHCs.create_next_CHC();
+    if let App(Predicate(_), new_query_params) = &mut new_clause.head {
+        let var = Var(var_name.clone());
+        if !new_query_params.contains(&var) {
+            panic!("Variable to drop not found in latest query")
+        }
+        new_query_params.retain(|v| v != &var);
+    }
+    CHCs.push(new_clause);
+}
+
 pub(super) fn translate_assertion(
     stmt_macro: &syn::StmtMacro,
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,

@@ -54,6 +54,7 @@ impl Display for Expr {
             Var(name) => write!(f, "|{}|", name), // we always quote variable names for simplicity
             Const(value) => write!(f, "{}", value),
             ConstTrue => write!(f, "true"),
+            App(ref pred @ Predicate(_), args) if args.is_empty() => write!(f, "{}", pred),
             App(op, args) => {
                 write!(f, "({}", op)?;
                 for arg in args {
