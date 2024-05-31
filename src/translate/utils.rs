@@ -45,8 +45,8 @@ impl CHCSystem for Vec<HornClause> {
         self.iter().rev().find_map(|clause| {
             if let App(Predicate(name), args) = &clause.head {
                 for arg in args {
-                    if let Var(_) = arg {} else {
-                        panic!("Latest CHC head contains a non-variable argument");
+                    if !matches!(arg, Var(_) | ReferenceCurrVal(_) | ReferenceFinalVal(_)) {
+                        panic!("Latest CHC head contains a non-variable argument: {}", arg);
                     }
                 }
                 Some(PredicateRef::ref_to(name, args))

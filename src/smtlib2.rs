@@ -4,7 +4,7 @@ use std::io::Write;
 
 use itertools::sorted;
 
-use crate::smtlib2::Expr::{App, Const, ConstTrue, Var};
+use crate::smtlib2::Expr::{App, Const, ConstTrue, ReferenceCurrVal, ReferenceFinalVal, Var};
 use crate::smtlib2::Operation::Predicate;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -12,6 +12,8 @@ pub(crate) enum Expr {
     Var(String),
     Const(i32),
     ConstTrue,
+    ReferenceCurrVal(String),
+    ReferenceFinalVal(String),
     App(Operation, Vec<Expr>),
 }
 
@@ -62,8 +64,18 @@ impl Display for Expr {
                 }
                 write!(f, ")")
             }
+            ReferenceCurrVal(name) => write!(f, "|{}|", current_value_repr(name)),
+            ReferenceFinalVal(name) => write!(f, "|{}|", final_value_repr(name)),
         }
     }
+}
+
+fn current_value_repr(var_name: &String) -> String {
+    format!("{}*", var_name)
+}
+
+fn final_value_repr(var_name: &String) -> String {
+    format!("{}^", var_name)
 }
 
 #[derive(Debug, Clone)]
@@ -86,6 +98,12 @@ impl HornClause {
         match expr {
             Var(name) => {
                 vars.insert(name.clone());
+            }
+            ReferenceCurrVal(name) => {
+                vars.insert(current_value_repr(name));
+            }
+            ReferenceFinalVal(name) => {
+                vars.insert(final_value_repr(name));
             }
             Const(_) => {}
             ConstTrue => {}
@@ -130,6 +148,7 @@ pub(crate) enum Operation {
     Modulo,
     And,
     Or,
+    Not,
     Equals,
     NotEquals,
     LessThan,
@@ -149,6 +168,7 @@ impl Display for Operation {
             Operation::Modulo => write!(f, "mod"),
             Operation::And => write!(f, "and"),
             Operation::Or => write!(f, "or"),
+            Operation::Not => write!(f, "not"),
             Operation::Equals => write!(f, "="),
             Operation::NotEquals => write!(f, "distinct"),
             Operation::LessThan => write!(f, "<"),
@@ -172,16 +192,20 @@ impl PredicateRef<'_> {
     }
 
     fn stripped_args(&self) -> Vec<Expr> {
+        fn strip_trailing_apostrophes(name: &String) -> String {
+            let mut new_name = name.clone();
+            while new_name.ends_with('\'') {
+                new_name.pop();
+            }
+            new_name
+        }
+
         self.args
             .iter()
             .map(|arg| match arg {
-                Var(name) => {
-                    let mut new_name = name.clone();
-                    while new_name.ends_with('\'') {
-                        new_name.pop();
-                    }
-                    Var(new_name)
-                }
+                Var(name) => Var(strip_trailing_apostrophes(name)),
+                ReferenceCurrVal(name) => ReferenceCurrVal(strip_trailing_apostrophes(name)),
+                ReferenceFinalVal(name) => ReferenceFinalVal(strip_trailing_apostrophes(name)),
                 _ => panic!("Non-variable argument in predicate reference"),
             })
             .collect()

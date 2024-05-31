@@ -42,7 +42,7 @@ pub(super) fn translate_syn_expr(expr: &syn::Expr) -> smtlib2::Expr {
         syn::Expr::Lit(syn::ExprLit {
             lit: syn::Lit::Int(lit_int),
             ..
-        }) => Const(lit_int.base10_parse::<i32>().unwrap()),
+        }) => Const(lit_int.base10_parse::<i32>().expect("Cannot parse integer")),
 
         _ => panic!("Unsupported syn expression, got: {:?}", expr),
     }
