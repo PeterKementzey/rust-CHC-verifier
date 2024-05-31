@@ -22,6 +22,16 @@ pub(crate) fn get_var_name(path: &syn::ExprPath) -> String {
         .to_string()
 }
 
+pub(super) fn get_referenced_name(expr: &syn::Expr) -> String {
+    match expr {
+        syn::Expr::Reference(reference) => match &*reference.expr {
+            syn::Expr::Path(path) => get_var_name(path),
+            _ => panic!("Expected path expression in reference {:?}", reference),
+        },
+        _ => panic!("Expected reference expression {:?}", expr),
+    }
+}
+
 pub(crate) fn get_macro_name(stmt_macro: &syn::StmtMacro) -> String {
     stmt_macro
         .mac
@@ -42,4 +52,11 @@ pub(crate) fn get_assert_condition(stmt_macro: &syn::StmtMacro) -> syn::Expr {
     let condition: syn::Expr = syn::parse2(stmt_macro.mac.tokens.clone())
         .expect("Failed to parse macro tokens as expression");
     condition
+}
+
+pub(crate) fn is_borrow(local: &Local) -> bool {
+    match &local.init {
+        Some(local_init) => matches!(*local_init.expr, syn::Expr::Reference(_)),
+        None => false,
+    }
 }

@@ -3,7 +3,7 @@ use syn::{Expr, Item, Stmt};
 use crate::drop_elaboration::ExtendedStmt::Stmt as ExStmt;
 use crate::drop_elaboration::{perform_drop_elaboration, ExtendedStmt};
 use crate::smtlib2::HornClause;
-use crate::syn_utils::get_local_var_name;
+use crate::syn_utils::{get_local_var_name, is_borrow};
 use crate::translate::stmt_translations::{translate_assertion, translate_drop};
 
 mod expr_translations;
@@ -29,6 +29,11 @@ pub(crate) fn translate_item(item: &Item, #[allow(non_snake_case)] CHCs: &mut Ve
 
 fn translate_stmt(stmt: &ExtendedStmt, #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>) {
     match stmt {
+        ExStmt(Stmt::Local(local)) if is_borrow(local) => {
+            // Translate local variable declaration
+            println!("Stmt::Local (reference): {}", get_local_var_name(&local));
+            stmt_translations::translate_borrow(local, CHCs);
+        }
         ExStmt(Stmt::Local(local)) => {
             // Translate local variable declaration
             println!("Stmt::Local: {}", get_local_var_name(&local));

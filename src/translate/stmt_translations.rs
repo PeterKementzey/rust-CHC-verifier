@@ -2,7 +2,9 @@ use crate::smtlib2;
 use crate::smtlib2::Expr::*;
 use crate::smtlib2::HornClause;
 use crate::smtlib2::Operation::*;
-use crate::syn_utils::{get_assert_condition, get_local_var_name, get_macro_name};
+use crate::syn_utils::{
+    get_assert_condition, get_local_var_name, get_macro_name, get_referenced_name,
+};
 use crate::translate::expr_translations::translate_syn_expr;
 use crate::translate::utils::CHCSystem;
 
@@ -35,17 +37,71 @@ pub(super) fn translate_local_var_decl(
     CHCs.push(new_clause);
 }
 
+pub(super) fn translate_borrow(
+    local: &syn::Local,
+    #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
+) {
+    let reference_name = get_local_var_name(&local);
+    let referred_name = local
+        .init
+        .as_ref()
+        .map(|syn::LocalInit { expr, .. }| get_referenced_name(&expr))
+        .expect("Cannot get reference target");
+
+    let referred_var = Var(referred_name.clone());
+    let current_value = ReferenceCurrVal(reference_name.clone());
+    let final_value = ReferenceFinalVal(reference_name);
+
+    let mut new_clause = CHCs.create_next_CHC();
+
+    if new_clause.head_contains(&current_value) {
+        panic!("Reference already exists in latest query")
+    }
+    if new_clause.head_contains(&final_value) {
+        panic!("Final value already exists in latest query")
+    }
+    if !new_clause.head_contains(&referred_var) {
+        panic!("Referenced variable not found in latest query")
+    }
+
+    new_clause.insert_head_query_param(current_value.clone());
+    new_clause.insert_head_query_param(final_value.clone());
+
+    let curr_val_eq_variable = App(Equals, vec![current_value, referred_var.clone()]);
+    new_clause.body.push(curr_val_eq_variable);
+
+    let referred_var_updated = Var(referred_name + "'");
+    let variable_eq_final_val = App(Equals, vec![referred_var_updated.clone(), final_value]);
+    new_clause.body.push(variable_eq_final_val);
+    new_clause.replace_head_query_param(&referred_var, referred_var_updated);
+
+    CHCs.push(new_clause);
+}
+
 pub(super) fn translate_drop(
     var_name: &String,
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
     let mut new_clause = CHCs.create_next_CHC();
-    if let App(Predicate(_), new_query_params) = &mut new_clause.head {
-        let var = Var(var_name.clone());
-        if !new_query_params.contains(&var) {
-            panic!("Variable to drop not found in latest query")
+    if let App(Predicate(_), query_params) = &mut new_clause.head {
+        let var = query_params
+            .iter()
+            .find(|v| match v {
+                Var(name) | ReferenceCurrVal(name) => name == var_name,
+                _ => panic!("Unexpected query parameter: {:?}", v),
+            })
+            .expect("Variable to drop not found in latest query")
+            .clone();
+        match var {
+            Var(_) => query_params.retain(|v| *v != var),
+            curr_val @ ReferenceCurrVal(_) => {
+                let final_val = ReferenceFinalVal(var_name.clone());
+                let final_val_eq_curr_val = App(Equals, vec![final_val.clone(), curr_val.clone()]);
+                new_clause.body.push(final_val_eq_curr_val);
+                query_params.retain(|v| *v != curr_val && *v != final_val);
+            }
+            _ => panic!("Unexpected query parameter: {:?}", var),
         }
-        new_query_params.retain(|v| v != &var);
     }
     CHCs.push(new_clause);
 }
