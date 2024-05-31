@@ -17,3 +17,10 @@ Run an example file (not analyze but execute):
 ```sh
 cargo run --example example1
 ```
+
+## Docker
+
+```sh
+docker build -t rust-verifier .
+docker run rust-verifier
+```
