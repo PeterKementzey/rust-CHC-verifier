@@ -36,6 +36,22 @@ pub(super) fn translate_syn_expr(expr: &syn::Expr) -> smtlib2::Expr {
                 _ => panic!("Unsupported binary operator: {:?}", binary.op),
             }
         }
+        // Unary operation
+        syn::Expr::Unary(unary) => {
+            let expr = translate_syn_expr(&unary.expr);
+            match unary.op {
+                syn::UnOp::Not(_) => App(Not, vec![expr]),
+                syn::UnOp::Neg(_) => App(Sub, vec![Const(0), expr]),
+                syn::UnOp::Deref(_) => {
+                    if let Var(name) = expr {
+                        ReferenceCurrVal(name)
+                    } else {
+                        panic!("Dereference of non-variable")
+                    }
+                }
+                _ => panic!("Unsupported unary operator: {:?}", unary.op),
+            }
+        }
         // Variable
         syn::Expr::Path(path) => Var(get_var_name(&path)),
         // Integer constant
@@ -57,13 +73,22 @@ pub(super) fn translate_assignment(
     }
 
     let (lhs, updated_lhs) = {
-        let variable_name = match translate_syn_expr(&assign.left) {
-            Var(name) => name,
+        fn append_apostrophe(name: &String) -> String {
+            let mut new_name = name.clone();
+            new_name.push('\'');
+            new_name
+        }
+        match translate_syn_expr(&assign.left) {
+            Var(name) => {
+                let updated_lhs = Var(append_apostrophe(&name));
+                (Var(name), updated_lhs)
+            }
+            ReferenceCurrVal(name) => {
+                let updated_lhs = ReferenceCurrVal(append_apostrophe(&name));
+                (ReferenceCurrVal(name), updated_lhs)
+            }
             _ => panic!("Assignment left-hand side is not a variable"),
-        };
-        let mut new_name = variable_name.clone();
-        new_name.push('\''); // variable_name'
-        (Var(variable_name), Var(new_name))
+        }
     };
 
     let mut new_clause = CHCs.create_next_CHC();
