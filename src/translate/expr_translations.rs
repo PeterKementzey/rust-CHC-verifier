@@ -43,6 +43,7 @@ pub(super) fn translate_syn_expr(expr: &syn::Expr) -> smtlib2::Expr {
                 syn::UnOp::Not(_) => App(Not, vec![expr]),
                 syn::UnOp::Neg(_) => App(Sub, vec![Const(0), expr]),
                 syn::UnOp::Deref(_) => {
+                    // If we are dereferencing a variable, it has to be a reference (borrow)
                     if let Var(name) = expr {
                         ReferenceCurrVal(name)
                     } else {
@@ -73,19 +74,12 @@ pub(super) fn translate_assignment(
     }
 
     let (lhs, updated_lhs) = {
-        fn append_apostrophe(name: &String) -> String {
-            let mut new_name = name.clone();
-            new_name.push('\'');
-            new_name
-        }
         match translate_syn_expr(&assign.left) {
             Var(name) => {
-                let updated_lhs = Var(append_apostrophe(&name));
-                (Var(name), updated_lhs)
+                (Var(name.clone()), Var(name + "'"))
             }
             ReferenceCurrVal(name) => {
-                let updated_lhs = ReferenceCurrVal(append_apostrophe(&name));
-                (ReferenceCurrVal(name), updated_lhs)
+                (ReferenceCurrVal(name.clone()), ReferenceCurrVal(name + "'"))
             }
             _ => panic!("Assignment left-hand side is not a variable"),
         }

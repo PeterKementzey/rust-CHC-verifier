@@ -17,7 +17,7 @@ mod translate;
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
-        println!("Please provide a file to parse");
+        println!("Please provide a single file to parse");
         return;
     }
     if !args[1].ends_with(".rs") {
@@ -25,19 +25,18 @@ fn main() {
         return;
     }
 
-    let mut src = String::new();
-    {
+    let src = {
         let mut source_file = File::open(&args[1]).expect("Unable to open file");
+        let mut src = String::new();
         source_file
             .read_to_string(&mut src)
             .expect("Unable to read file");
-    }
+        src
+    };
 
     let ast = parse_file(&src).expect("Unable to parse file");
 
     {
-        // FIXME remove this block
-        // Print program
         let tokens = quote! { #ast };
         println!("The entire AST:");
         println!("{}", tokens);
@@ -51,10 +50,14 @@ fn main() {
 
     use std::io::{stdout, Write};
 
-    let smt2_file = File::create(format!("{}.smt2", &args[1][..args[1].len() - 3]));
+    let smt2_file_name = format!("{}.smt2", &args[1][..args[1].len() - 3]);
+    let smt2_file = File::create(&smt2_file_name);
 
     let output: Box<dyn Write> = match smt2_file {
-        Ok(file) => Box::new(file),
+        Ok(file) => {
+            println!("Writing to file: {}", smt2_file_name);
+            Box::new(file)
+        }
         Err(e) => {
             println!("Could not open/create smt2 file: {}", e);
             println!("Writing to standard output:");

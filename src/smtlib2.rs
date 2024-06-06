@@ -56,6 +56,7 @@ impl Display for Expr {
             Var(name) => write!(f, "|{}|", name), // we always quote variable names for simplicity
             Const(value) => write!(f, "{}", value),
             ConstTrue => write!(f, "true"),
+            // predicates can have 0 arguments, in which case Z3 does not accept parentheses
             App(ref pred @ Predicate(_), args) if args.is_empty() => write!(f, "{}", pred),
             App(op, args) => {
                 write!(f, "({}", op)?;
@@ -86,33 +87,32 @@ pub(crate) struct HornClause {
 
 impl HornClause {
     fn free_vars(&self) -> HashSet<String> {
-        let mut vars = HashSet::new();
-        self._collect_free_vars_from_expr(&self.head, &mut vars);
-        for expr in &self.body {
-            self._collect_free_vars_from_expr(expr, &mut vars);
-        }
-        vars
-    }
-
-    fn _collect_free_vars_from_expr(&self, expr: &Expr, vars: &mut HashSet<String>) {
-        match expr {
-            Var(name) => {
-                vars.insert(name.clone());
-            }
-            ReferenceCurrVal(name) => {
-                vars.insert(current_value_repr(name));
-            }
-            ReferenceFinalVal(name) => {
-                vars.insert(final_value_repr(name));
-            }
-            Const(_) => {}
-            ConstTrue => {}
-            App(_, args) => {
-                for arg in args {
-                    self._collect_free_vars_from_expr(arg, vars);
+        fn collect_free_vars_from_expr(expr: &Expr, vars: &mut HashSet<String>) {
+            match expr {
+                Var(name) => {
+                    vars.insert(name.clone());
+                }
+                ReferenceCurrVal(name) => {
+                    vars.insert(current_value_repr(name));
+                }
+                ReferenceFinalVal(name) => {
+                    vars.insert(final_value_repr(name));
+                }
+                Const(_) | ConstTrue => {}
+                App(_, args) => {
+                    for arg in args {
+                        collect_free_vars_from_expr(arg, vars);
+                    }
                 }
             }
         }
+
+        let mut vars = HashSet::new();
+        collect_free_vars_from_expr(&self.head, &mut vars);
+        for expr in &self.body {
+            collect_free_vars_from_expr(expr, &mut vars);
+        }
+        vars
     }
 
     fn extract_predicates<'a>(&'a self, predicates: &mut HashSet<PredicateRef<'a>>) {
@@ -180,39 +180,19 @@ impl Display for Operation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) struct PredicateRef<'a> {
     name: &'a String,
     args: &'a Vec<Expr>,
 }
 
 impl PredicateRef<'_> {
-    pub(crate) fn ref_to<'a>(name: &'a String, args: &'a Vec<Expr>) -> PredicateRef<'a> {
+    pub(crate) fn from<'a>(name: &'a String, args: &'a Vec<Expr>) -> PredicateRef<'a> {
         PredicateRef { name, args }
     }
-
-    fn stripped_args(&self) -> Vec<Expr> {
-        fn strip_trailing_apostrophes(name: &String) -> String {
-            let mut new_name = name.clone();
-            while new_name.ends_with('\'') {
-                new_name.pop();
-            }
-            new_name
-        }
-
-        self.args
-            .iter()
-            .map(|arg| match arg {
-                Var(name) => Var(strip_trailing_apostrophes(name)),
-                ReferenceCurrVal(name) => ReferenceCurrVal(strip_trailing_apostrophes(name)),
-                ReferenceFinalVal(name) => ReferenceFinalVal(strip_trailing_apostrophes(name)),
-                _ => panic!("Non-variable argument in predicate reference"),
-            })
-            .collect()
-    }
-
-    pub(crate) fn to_stripped_enum(&self) -> Expr {
-        App(Predicate(self.name.clone()), self.stripped_args())
+    
+    pub(crate) fn get_name_and_args(&self) -> (&String, &Vec<Expr>) {
+        (&self.name, &self.args)
     }
 }
 

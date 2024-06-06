@@ -3,7 +3,7 @@ use crate::smtlib2::Expr::*;
 use crate::smtlib2::HornClause;
 use crate::smtlib2::Operation::*;
 use crate::syn_utils::{
-    get_assert_condition, get_local_var_name, get_macro_name, get_referenced_name,
+    get_assert_condition, get_declared_var_name, get_macro_name, get_referenced_name,
 };
 use crate::translate::expr_translations::translate_syn_expr;
 use crate::translate::utils::CHCSystem;
@@ -12,7 +12,7 @@ pub(super) fn translate_local_var_decl(
     local: &syn::Local,
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
-    let new_query_param = Var(get_local_var_name(&local));
+    let new_query_param = Var(get_declared_var_name(&local));
 
     let mut new_clause = CHCs.create_next_CHC();
     if new_clause.head_contains(&new_query_param) {
@@ -21,13 +21,10 @@ pub(super) fn translate_local_var_decl(
 
     new_clause.insert_head_query_param(new_query_param.clone());
 
-    let rhs = local.init.as_ref().map(
-        |syn::LocalInit {
-             eq_token: _,
-             expr,
-             diverge: _,
-         }| translate_syn_expr(&expr),
-    );
+    let rhs = local
+        .init
+        .as_ref()
+        .map(|syn::LocalInit { expr, .. }| translate_syn_expr(&expr));
 
     if let Some(rhs) = rhs {
         let assignment = App(Equals, vec![new_query_param, rhs]);
@@ -41,14 +38,14 @@ pub(super) fn translate_borrow(
     local: &syn::Local,
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
-    let reference_name = get_local_var_name(&local);
-    let referred_name = local
+    let reference_name = get_declared_var_name(&local);
+    let referenced_name = local
         .init
         .as_ref()
         .map(|syn::LocalInit { expr, .. }| get_referenced_name(&expr))
         .expect("Cannot get reference target");
 
-    let referred_var = Var(referred_name.clone());
+    let referenced_var = Var(referenced_name.clone());
     let current_value = ReferenceCurrVal(reference_name.clone());
     let final_value = ReferenceFinalVal(reference_name);
 
@@ -60,20 +57,20 @@ pub(super) fn translate_borrow(
     if new_clause.head_contains(&final_value) {
         panic!("Final value already exists in latest query")
     }
-    if !new_clause.head_contains(&referred_var) {
+    if !new_clause.head_contains(&referenced_var) {
         panic!("Referenced variable not found in latest query")
     }
 
     new_clause.insert_head_query_param(current_value.clone());
     new_clause.insert_head_query_param(final_value.clone());
 
-    let curr_val_eq_variable = App(Equals, vec![current_value, referred_var.clone()]);
-    new_clause.body.push(curr_val_eq_variable);
+    let curr_val_eq_referenced = App(Equals, vec![current_value, referenced_var.clone()]);
+    new_clause.body.push(curr_val_eq_referenced);
 
-    let referred_var_updated = Var(referred_name + "'");
-    let variable_eq_final_val = App(Equals, vec![referred_var_updated.clone(), final_value]);
-    new_clause.body.push(variable_eq_final_val);
-    new_clause.replace_head_query_param(&referred_var, referred_var_updated);
+    let referenced_var_updated = Var(referenced_name + "'");
+    let referenced_eq_final_val = App(Equals, vec![referenced_var_updated.clone(), final_value]);
+    new_clause.body.push(referenced_eq_final_val);
+    new_clause.replace_head_query_param(&referenced_var, referenced_var_updated);
 
     CHCs.push(new_clause);
 }
@@ -83,26 +80,28 @@ pub(super) fn translate_drop(
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
     let mut new_clause = CHCs.create_next_CHC();
-    if let App(Predicate(_), query_params) = &mut new_clause.head {
-        let var = query_params
-            .iter()
-            .find(|v| match v {
-                Var(name) | ReferenceCurrVal(name) => name == var_name,
-                _ => panic!("Unexpected query parameter: {:?}", v),
-            })
-            .expect("Variable to drop not found in latest query")
-            .clone();
-        match var {
-            Var(_) => query_params.retain(|v| *v != var),
-            curr_val @ ReferenceCurrVal(_) => {
-                let final_val = ReferenceFinalVal(var_name.clone());
-                let final_val_eq_curr_val = App(Equals, vec![final_val.clone(), curr_val.clone()]);
-                new_clause.body.push(final_val_eq_curr_val);
-                query_params.retain(|v| *v != curr_val && *v != final_val);
-            }
-            _ => panic!("Unexpected query parameter: {:?}", var),
+    let head_query_params = new_clause.get_mut_head_query_params();
+
+    let var = head_query_params
+        .iter()
+        .find(|v| match v {
+            Var(name) | ReferenceCurrVal(name) => name == var_name,
+            _ => panic!("Unexpected query parameter: {:?}", v),
+        })
+        .expect("Variable to drop not found in latest query")
+        .clone();
+
+    match var {
+        Var(_) => head_query_params.retain(|v| *v != var),
+        curr_val @ ReferenceCurrVal(_) => {
+            let final_val = ReferenceFinalVal(var_name.clone());
+            head_query_params.retain(|v| *v != curr_val && *v != final_val);
+            let final_val_eq_curr_val = App(Equals, vec![final_val, curr_val]);
+            new_clause.body.push(final_val_eq_curr_val);
         }
+        _ => panic!("Unexpected query parameter: {:?}", var),
     }
+
     CHCs.push(new_clause);
 }
 
@@ -120,10 +119,11 @@ pub(super) fn translate_assertion(
 
     let last_query = CHCs
         .get_latest_query()
-        .expect("No queries to assert against");
+        .expect("No queries to assert against")
+        .to_expr_without_trailing_apostrophes();
     let new_clause = HornClause {
         head: condition,
-        body: vec![last_query.to_stripped_enum()],
+        body: vec![last_query],
     };
     CHCs.push(new_clause);
 }

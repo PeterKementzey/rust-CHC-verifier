@@ -1,6 +1,6 @@
 use syn::Local;
 
-pub(crate) fn get_local_var_name(local: &Local) -> String {
+pub(crate) fn get_declared_var_name(local: &Local) -> String {
     fn get_name(pat: &syn::Pat) -> String {
         match pat {
             syn::Pat::Ident(syn::PatIdent { ident, .. }) => ident.to_string(),
