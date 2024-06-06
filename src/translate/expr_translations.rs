@@ -53,6 +53,8 @@ pub(super) fn translate_syn_expr(expr: &syn::Expr) -> smtlib2::Expr {
                 _ => panic!("Unsupported unary operator: {:?}", unary.op),
             }
         }
+        // Parentheses
+        syn::Expr::Paren(paren) => translate_syn_expr(&paren.expr),
         // Variable
         syn::Expr::Path(path) => Var(get_var_name(&path)),
         // Integer constant
