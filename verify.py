@@ -18,9 +18,9 @@ def print_green(text):
     print(f"{GREEN}{text}{ENDC}")
 
 
-def verify_example(example):
-    source_file_name = example + '.rs'
-    smt_file_name = example + '.smt2'
+def verify_example(example: str):
+    source_file_name = example
+    smt_file_name = example[:-3] + '.smt2'
     command = f'./target/debug/rust-verifier examples/{source_file_name}'
     print_green(f'Running: {command}')
     subprocess.run(command, shell=True, check=True)
@@ -39,10 +39,10 @@ def main():
     if len(sys.argv) < 2:
         for file in os.listdir('examples'):
             if file.endswith('.rs'):
-                verify_example(file[:-3])
+                verify_example(file)
     else:
         for arg in sys.argv[1:]:
-            verify_example(f'example{arg}')
+            verify_example(arg)
 
 
 if __name__ == "__main__":
