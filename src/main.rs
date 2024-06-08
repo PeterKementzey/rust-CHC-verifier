@@ -1,6 +1,6 @@
 use std::env;
+use std::fs;
 use std::fs::File;
-use std::io::Read;
 
 use quote::quote;
 use syn::parse_file;
@@ -17,23 +17,15 @@ mod translate;
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
-        println!("Please provide a single file to parse");
+        eprintln!("Please provide a single file to parse");
         return;
     }
     if !args[1].ends_with(".rs") {
-        println!("Please provide a Rust file (.rs)");
+        eprintln!("Please provide a Rust file (.rs)");
         return;
     }
 
-    let src = {
-        let mut source_file = File::open(&args[1]).expect("Unable to open file");
-        let mut src = String::new();
-        source_file
-            .read_to_string(&mut src)
-            .expect("Unable to read file");
-        src
-    };
-
+    let src = fs::read_to_string(&args[1]).expect("Unable to read file");
     let ast = parse_file(&src).expect("Unable to parse file");
 
     {
@@ -59,7 +51,7 @@ fn main() {
             Box::new(file)
         }
         Err(e) => {
-            println!("Could not open/create smt2 file: {}", e);
+            eprintln!("Could not open/create smt2 file: {}", e);
             println!("Writing to standard output:");
             Box::new(stdout())
         }
