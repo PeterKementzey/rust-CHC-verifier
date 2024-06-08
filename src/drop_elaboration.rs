@@ -97,7 +97,14 @@ pub(crate) fn perform_drop_elaboration(block: &Block) -> Vec<ExtendedStmt> {
     for stmt in &block.stmts {
         extended_stmts.push(ExtendedStmt::Stmt(stmt.clone()));
 
-        for var in to_drop_per_index.get(&stmt_index).unwrap_or(&HashSet::new()) {
+        let mut vars_to_drop = to_drop_per_index
+            .get(&stmt_index)
+            .map(|vars| vars.iter().collect::<Vec<_>>())
+            .unwrap_or_else(Vec::new);
+
+        vars_to_drop.sort();
+
+        for var in vars_to_drop {
             extended_stmts.push(ExtendedStmt::Drop(var.clone()));
         }
 
