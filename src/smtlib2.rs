@@ -221,12 +221,16 @@ trait CHCSystem {
 
 impl CHCSystem for Vec<HornClause> {
     fn extract_unique_predicates(&self) -> Vec<PredicateRef<'_>> {
+        fn get_query_num(name: &str) -> usize {
+            name[1..].parse().unwrap()
+        }
+        
         let mut unique_predicates = HashSet::new();
         for clause in self {
             clause.extract_predicates(&mut unique_predicates);
         }
         let mut predicates: Vec<PredicateRef> = unique_predicates.into_iter().collect();
-        predicates.sort_by(|a, b| a.name.cmp(b.name));
+        predicates.sort_by(|a, b| get_query_num(a.name).cmp(&get_query_num(b.name)));
         predicates
     }
 

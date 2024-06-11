@@ -86,6 +86,7 @@ pub(super) fn translate_drop(
         .iter()
         .find(|v| match v {
             Var(name) | ReferenceCurrVal(name) => name == var_name,
+            ReferenceFinalVal(_) => false,
             _ => panic!("Unexpected query parameter: {:?}", v),
         })
         .expect("Variable to drop not found in latest query")
