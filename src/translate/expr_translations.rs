@@ -77,9 +77,7 @@ pub(super) fn translate_assignment(
 
     let (lhs, updated_lhs) = {
         match translate_syn_expr(&assign.left) {
-            Var(name) => {
-                (Var(name.clone()), Var(name + "'"))
-            }
+            Var(name) => (Var(name.clone()), Var(name + "'")),
             ReferenceCurrVal(name) => {
                 (ReferenceCurrVal(name.clone()), ReferenceCurrVal(name + "'"))
             }

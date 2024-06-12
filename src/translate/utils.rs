@@ -63,7 +63,7 @@ impl CHCSystem for Vec<HornClause> {
 }
 
 impl HornClause {
-    pub(crate) fn insert_head_query_param(&mut self, new_query_param: smtlib2::Expr) {
+    pub(super) fn insert_head_query_param(&mut self, new_query_param: smtlib2::Expr) {
         if let App(Predicate(_), query_params) = &mut self.head {
             query_params.push(new_query_param);
         } else {
@@ -71,22 +71,19 @@ impl HornClause {
         }
     }
 
-    pub(crate) fn replace_head_query_param(
+    pub(super) fn replace_head_query_param(
         &mut self,
         old_query_param: &smtlib2::Expr,
         new_query_param: smtlib2::Expr,
     ) {
-        if let App(Predicate(_), query_params) = &mut self.head {
-            match query_params.iter().position(|var| *var == *old_query_param) {
-                Some(old_var_index) => query_params[old_var_index] = new_query_param,
-                _ => panic!("Query parameter not found in head of CHC"),
-            }
-        } else {
-            panic!("Cannot replace if head of CHC is not a predicate");
+        let query_params = self.get_mut_head_query_params();
+        match query_params.iter().position(|var| *var == *old_query_param) {
+            Some(old_var_index) => query_params[old_var_index] = new_query_param,
+            _ => panic!("Query parameter not found in head of CHC"),
         }
     }
 
-    pub(crate) fn head_contains(&self, var: &smtlib2::Expr) -> bool {
+    pub(super) fn head_contains(&self, var: &smtlib2::Expr) -> bool {
         if let App(Predicate(_), query_params) = &self.head {
             query_params.contains(var)
         } else {
@@ -94,7 +91,7 @@ impl HornClause {
         }
     }
 
-    pub(crate) fn get_mut_head_query_params(&mut self) -> &mut Vec<smtlib2::Expr> {
+    pub(super) fn get_mut_head_query_params(&mut self) -> &mut Vec<smtlib2::Expr> {
         if let App(Predicate(_), query_params) = &mut self.head {
             query_params
         } else {
@@ -104,7 +101,7 @@ impl HornClause {
 }
 
 impl PredicateRef<'_> {
-    pub(crate) fn to_expr_without_trailing_apostrophes(&self) -> smtlib2::Expr {
+    pub(super) fn to_expr_without_trailing_apostrophes(&self) -> smtlib2::Expr {
         fn strip_trailing_apostrophes(name: &String) -> String {
             let mut new_name = name.clone();
             while new_name.ends_with('\'') {
