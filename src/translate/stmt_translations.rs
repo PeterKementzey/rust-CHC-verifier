@@ -79,31 +79,32 @@ pub(super) fn translate_drop(
     var_name: &String,
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
-    let mut new_clause = CHCs.create_next_CHC();
-    let head_query_params = new_clause.get_mut_head_query_params();
-
-    let var = head_query_params
-        .iter()
-        .find(|v| match v {
-            Var(name) | ReferenceCurrVal(name) => name == var_name,
-            ReferenceFinalVal(_) => false,
+    if let App(Predicate(_), query_params) = CHCs
+        .get_latest_query()
+        .expect("No queries to drop reference from")
+        .to_expr_without_trailing_apostrophes() {
+        query_params.iter().find_map(|v| match v {
+            var@Var(name) if name == var_name => {
+                let mut new_clause = CHCs.create_next_CHC();
+                let head_query_params = new_clause.get_mut_head_query_params();
+                head_query_params.retain(|v| v != var);
+                CHCs.push(new_clause);
+                Some(())
+            }
+            curr_val @ ReferenceCurrVal(name) if name == var_name => {
+                let mut new_clause = CHCs.create_next_CHC();
+                let head_query_params = new_clause.get_mut_head_query_params();
+                let final_val = ReferenceFinalVal(name.clone());
+                head_query_params.retain(|v| v != curr_val && *v != final_val);
+                let final_val_eq_curr_val = App(Equals, vec![final_val, curr_val.clone()]);
+                new_clause.body.push(final_val_eq_curr_val);
+                CHCs.push(new_clause);
+                Some(())
+            }
+            Var(_) | ReferenceCurrVal(_) | ReferenceFinalVal(_) => None,
             _ => panic!("Unexpected query parameter: {:?}", v),
-        })
-        .expect("Variable to drop not found in latest query")
-        .clone();
-
-    match var {
-        Var(_) => head_query_params.retain(|v| *v != var),
-        curr_val @ ReferenceCurrVal(_) => {
-            let final_val = ReferenceFinalVal(var_name.clone());
-            head_query_params.retain(|v| *v != curr_val && *v != final_val);
-            let final_val_eq_curr_val = App(Equals, vec![final_val, curr_val]);
-            new_clause.body.push(final_val_eq_curr_val);
-        }
-        _ => panic!("Unexpected query parameter: {:?}", var),
+        }).expect("Variable not found in latest query");
     }
-
-    CHCs.push(new_clause);
 }
 
 pub(super) fn translate_assertion(
