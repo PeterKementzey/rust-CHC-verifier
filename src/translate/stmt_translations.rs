@@ -3,8 +3,9 @@ use crate::smtlib2::Expr::*;
 use crate::smtlib2::HornClause;
 use crate::smtlib2::Operation::*;
 use crate::syn_utils::{
-    get_assert_condition, get_declared_var_name, get_macro_name, get_referenced_name,
+    get_assert_condition, get_borrowed_name, get_declared_var_name, get_macro_name,
 };
+use crate::translate::borrow_utils::drop_reference;
 use crate::translate::expr_translations::translate_syn_expr;
 use crate::translate::utils::CHCSystem;
 
@@ -42,7 +43,7 @@ pub(super) fn translate_borrow(
     let referenced_name = local
         .init
         .as_ref()
-        .map(|syn::LocalInit { expr, .. }| get_referenced_name(&expr))
+        .map(|syn::LocalInit { expr, .. }| get_borrowed_name(&expr))
         .expect("Cannot get reference target");
 
     let referenced_var = Var(referenced_name.clone());
@@ -51,15 +52,18 @@ pub(super) fn translate_borrow(
 
     let mut new_clause = CHCs.create_next_CHC();
 
-    if new_clause.head_contains(&current_value) {
-        panic!("Reference already exists in latest query")
-    }
-    if new_clause.head_contains(&final_value) {
-        panic!("Final value already exists in latest query")
-    }
-    if !new_clause.head_contains(&referenced_var) {
-        panic!("Referenced variable not found in latest query")
-    }
+    assert!(
+        !new_clause.head_contains(&current_value),
+        "Reference already exists in latest query"
+    );
+    assert!(
+        !new_clause.head_contains(&final_value),
+        "Final value already exists in latest query"
+    );
+    assert!(
+        new_clause.head_contains(&referenced_var),
+        "Referenced variable not found in latest query"
+    );
 
     new_clause.insert_head_query_param(current_value.clone());
     new_clause.insert_head_query_param(final_value.clone());
@@ -112,9 +116,11 @@ pub(super) fn translate_assertion(
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
     let macro_name = get_macro_name(&stmt_macro);
-    if macro_name != "assert" {
-        panic!("Unsupported macro name: {}", macro_name);
-    }
+    assert_eq!(
+        macro_name, "assert",
+        "Unsupported macro name: {}",
+        macro_name
+    );
 
     let condition: syn::Expr = get_assert_condition(&stmt_macro);
     let condition: smtlib2::Expr = translate_syn_expr(&condition);

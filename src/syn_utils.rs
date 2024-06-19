@@ -22,7 +22,7 @@ pub(crate) fn get_var_name(path: &syn::ExprPath) -> String {
         .to_string()
 }
 
-pub(super) fn get_referenced_name(expr: &syn::Expr) -> String {
+pub(super) fn get_borrowed_name(expr: &syn::Expr) -> String {
     match expr {
         syn::Expr::Reference(reference) => match &*reference.expr {
             syn::Expr::Path(path) => get_var_name(path),
@@ -43,12 +43,11 @@ pub(crate) fn get_macro_name(stmt_macro: &syn::StmtMacro) -> String {
 
 pub(crate) fn get_assert_condition(stmt_macro: &syn::StmtMacro) -> syn::Expr {
     let macro_name = get_macro_name(&stmt_macro);
-    if macro_name != "assert" {
-        panic!(
-            "get_assert_condition called with wrong macro: {}",
-            macro_name
-        );
-    }
+    assert_eq!(
+        macro_name, "assert",
+        "get_assert_condition called with wrong macro: {}",
+        macro_name
+    );
     let condition: syn::Expr = syn::parse2(stmt_macro.mac.tokens.clone())
         .expect("Failed to parse macro tokens as expression");
     condition

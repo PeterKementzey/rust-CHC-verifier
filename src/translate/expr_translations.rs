@@ -71,9 +71,7 @@ pub(super) fn translate_assignment(
     assign: &ExprAssign,
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
-    if CHCs.is_empty() {
-        panic!("Assignment reached with no CHCs")
-    }
+    assert!(!CHCs.is_empty(), "Assignment reached with no CHCs");
 
     let (lhs, updated_lhs) = {
         match translate_syn_expr(&assign.left) {

@@ -102,6 +102,13 @@ impl HornClause {
 
 impl PredicateRef<'_> {
     pub(super) fn to_expr_without_trailing_apostrophes(&self) -> smtlib2::Expr {
+        let (name, _) = self.get_name_and_args();
+        let stripped_args = self.get_stripped_query_params();
+
+        App(Predicate(name.clone()), stripped_args)
+    }
+
+    pub(super) fn get_stripped_query_params(&self) -> Vec<smtlib2::Expr> {
         fn strip_trailing_apostrophes(name: &String) -> String {
             let mut new_name = name.clone();
             while new_name.ends_with('\'') {
@@ -110,7 +117,7 @@ impl PredicateRef<'_> {
             new_name
         }
 
-        let (name, args) = self.get_name_and_args();
+        let (_, args) = self.get_name_and_args();
 
         let stripped_args: Vec<smtlib2::Expr> = args
             .iter()
@@ -122,7 +129,7 @@ impl PredicateRef<'_> {
             })
             .collect();
 
-        App(Predicate(name.clone()), stripped_args)
+        return stripped_args;
     }
 }
 
@@ -142,7 +149,8 @@ impl AliasGroups {
             .map(|group| &group.curr_name)
     }
 
-    pub(super) fn insert_alias(&mut self, alias1: String, alias2: String) -> &String {
+    /// If no group contains either alias, then alias1 will be the current name of a new group
+    pub(super) fn add_alias(&mut self, alias1: String, alias2: String) -> &String {
         let index = self
             .groups
             .iter()
@@ -185,12 +193,12 @@ impl AliasGroups {
         match index {
             Some(index) => {
                 let group = &mut self.groups[index];
-                if group.curr_name == *alias {
-                    panic!("Cannot drop current name of alias group")
-                }
+                assert_ne!(
+                    group.curr_name, *alias,
+                    "Cannot drop current name of alias group"
+                );
                 group.aliases.retain(|name| name != alias);
-                let is_empty = group.aliases.is_empty();
-                if is_empty {
+                if group.aliases.is_empty() {
                     self.groups.remove(index);
                 }
             }

@@ -27,12 +27,7 @@ impl Expr {
                     .find(|p| p.name == name)
                     .map(|p| p.args.len())
                 {
-                    if existing_count != arg_count {
-                        panic!(
-                            "Predicate '{}' previously defined with {} arguments, now with {} arguments",
-                            name, existing_count, arg_count
-                        );
-                    }
+                    assert_eq!(existing_count, arg_count, "Predicate '{}' previously defined with {} arguments, now with {} arguments", name, existing_count, arg_count);
                 } else {
                     predicates.insert(PredicateRef { name, args });
                 }
@@ -190,7 +185,7 @@ impl PredicateRef<'_> {
     pub(crate) fn from<'a>(name: &'a String, args: &'a Vec<Expr>) -> PredicateRef<'a> {
         PredicateRef { name, args }
     }
-    
+
     pub(crate) fn get_name_and_args(&self) -> (&String, &Vec<Expr>) {
         (&self.name, &self.args)
     }
@@ -224,7 +219,7 @@ impl CHCSystem for Vec<HornClause> {
         fn get_query_num(name: &str) -> usize {
             name[1..].parse().unwrap()
         }
-        
+
         let mut unique_predicates = HashSet::new();
         for clause in self {
             clause.extract_predicates(&mut unique_predicates);
