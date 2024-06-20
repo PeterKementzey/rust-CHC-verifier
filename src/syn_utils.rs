@@ -53,9 +53,13 @@ pub(crate) fn get_assert_condition(stmt_macro: &syn::StmtMacro) -> syn::Expr {
     condition
 }
 
-pub(crate) fn is_borrow(local: &Local) -> bool {
-    match &local.init {
-        Some(local_init) => matches!(*local_init.expr, syn::Expr::Reference(_)),
-        None => false,
-    }
+pub(crate) fn is_borrow(expr: &syn::Expr) -> bool {
+    matches!(expr, syn::Expr::Reference(_))
+}
+
+pub(crate) fn get_init_expr(local: &Local) -> Option<&syn::Expr> {
+    local
+        .init
+        .as_ref()
+        .map(|syn::LocalInit { expr, .. }| &**expr)
 }
