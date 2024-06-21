@@ -27,7 +27,7 @@ impl Expr {
                     .find(|p| p.name == name)
                     .map(|p| p.args.len())
                 {
-                    assert_eq!(existing_count, arg_count, "Predicate '{}' previously defined with {} arguments, now with {} arguments", name, existing_count, arg_count);
+                    assert_eq!(existing_count, arg_count, "Predicate '{name}' previously defined with {existing_count} arguments, now with {arg_count} arguments");
                 } else {
                     predicates.insert(PredicateRef { name, args });
                 }
@@ -48,15 +48,15 @@ impl Expr {
 impl Display for Expr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Var(name) => write!(f, "|{}|", name), // we always quote variable names for simplicity
-            Const(value) => write!(f, "{}", value),
+            Var(name) => write!(f, "|{name}|"), // we always quote variable names for simplicity
+            Const(value) => write!(f, "{value}"),
             ConstTrue => write!(f, "true"),
             // predicates can have 0 arguments, in which case Z3 does not accept parentheses
-            App(ref pred @ Predicate(_), args) if args.is_empty() => write!(f, "{}", pred),
+            App(ref pred @ Predicate(_), args) if args.is_empty() => write!(f, "{pred}"),
             App(op, args) => {
-                write!(f, "({}", op)?;
+                write!(f, "({op}")?;
                 for arg in args {
-                    write!(f, " {}", arg)?;
+                    write!(f, " {arg}")?;
                 }
                 write!(f, ")")
             }
@@ -67,11 +67,11 @@ impl Display for Expr {
 }
 
 fn current_value_repr(var_name: &String) -> String {
-    format!("{}*", var_name)
+    format!("{var_name}*")
 }
 
 fn final_value_repr(var_name: &String) -> String {
-    format!("{}^", var_name)
+    format!("{var_name}^")
 }
 
 #[derive(Debug, Clone)]
@@ -123,7 +123,7 @@ impl Display for HornClause {
         let vars: Vec<String> = sorted(self.free_vars()).collect();
         write!(f, "(assert (forall ((|{}| Int)", vars[0])?;
         for var in &vars[1..] {
-            write!(f, " (|{}| Int)", var)?;
+            write!(f, " (|{var}| Int)")?;
         }
         let body = if self.body.is_empty() {
             ConstTrue
@@ -170,7 +170,7 @@ impl Display for Operation {
             Operation::LessEquals => write!(f, "<="),
             Operation::GreaterThan => write!(f, ">"),
             Operation::GreaterEquals => write!(f, ">="),
-            Operation::Predicate(name) => write!(f, "{}", name),
+            Operation::Predicate(name) => write!(f, "{name}"),
         }
     }
 }
@@ -187,7 +187,7 @@ impl PredicateRef<'_> {
     }
 
     pub(crate) fn get_name_and_args(&self) -> (&String, &Vec<Expr>) {
-        (&self.name, &self.args)
+        (self.name, self.args)
     }
 }
 
@@ -199,10 +199,10 @@ impl Smtlib2Display for Vec<HornClause> {
     fn write_as_smtlib2(&self, mut output: Box<dyn Write>) -> std::io::Result<()> {
         writeln!(output, "(set-logic HORN)")?;
         for decl in self.generate_predicate_declarations() {
-            writeln!(output, "{}", decl)?;
+            writeln!(output, "{decl}")?;
         }
         for clause in self {
-            writeln!(output, "{}", clause)?;
+            writeln!(output, "{clause}")?;
         }
         writeln!(output, "(check-sat)")?;
         writeln!(output, "(get-model)")
@@ -237,7 +237,7 @@ impl CHCSystem for Vec<HornClause> {
                     .map(|_| "Int")
                     .collect::<Vec<&str>>()
                     .join(" ");
-                format!("(declare-fun {} ({}) Bool)", name, arg_types)
+                format!("(declare-fun {name} ({arg_types}) Bool)")
             })
             .collect()
     }

@@ -1,6 +1,6 @@
 use crate::smtlib2;
-use crate::smtlib2::Expr::*;
-use crate::smtlib2::Operation::*;
+use crate::smtlib2::Expr::{App, ReferenceCurrVal, ReferenceFinalVal, Var};
+use crate::smtlib2::Operation::Predicate;
 use crate::smtlib2::{HornClause, PredicateRef};
 
 fn get_new_query_name() -> String {
@@ -50,8 +50,9 @@ impl CHCSystem for Vec<HornClause> {
         self.iter().rev().find_map(|clause| {
             if let App(Predicate(name), args) = &clause.head {
                 for arg in args {
+                    #[allow(clippy::manual_assert)]
                     if !matches!(arg, Var(_) | ReferenceCurrVal(_) | ReferenceFinalVal(_)) {
-                        panic!("Latest CHC head contains a non-variable argument: {}", arg);
+                        panic!("Latest CHC head contains a non-variable argument: {arg}");
                     }
                 }
                 Some(PredicateRef::from(name, args))
@@ -109,8 +110,8 @@ impl PredicateRef<'_> {
     }
 
     pub(super) fn get_stripped_query_params(&self) -> Vec<smtlib2::Expr> {
-        fn strip_trailing_apostrophes(name: &String) -> String {
-            let mut new_name = name.clone();
+        fn strip_trailing_apostrophes(name: &str) -> String {
+            let mut new_name = name.to_string();
             while new_name.ends_with('\'') {
                 new_name.pop();
             }
@@ -122,14 +123,14 @@ impl PredicateRef<'_> {
         let stripped_args: Vec<smtlib2::Expr> = args
             .iter()
             .map(|arg| match arg {
-                Var(name) => Var(strip_trailing_apostrophes(&name)),
-                ReferenceCurrVal(name) => ReferenceCurrVal(strip_trailing_apostrophes(&name)),
-                ReferenceFinalVal(name) => ReferenceFinalVal(strip_trailing_apostrophes(&name)),
+                Var(name) => Var(strip_trailing_apostrophes(name)),
+                ReferenceCurrVal(name) => ReferenceCurrVal(strip_trailing_apostrophes(name)),
+                ReferenceFinalVal(name) => ReferenceFinalVal(strip_trailing_apostrophes(name)),
                 _ => panic!("Non-variable argument in predicate reference"),
             })
             .collect();
 
-        return stripped_args;
+        stripped_args
     }
 }
 
@@ -155,20 +156,17 @@ impl AliasGroups {
             .groups
             .iter()
             .position(|group| group.contains(&alias1) || group.contains(&alias2));
-        match index {
-            Some(index) => {
-                let group = &mut self.groups[index];
-                group.insert_alias(alias1);
-                group.insert_alias(alias2);
-                &group.curr_name
-            }
-            None => {
-                self.groups.push(AliasGroup {
-                    curr_name: alias1,
-                    aliases: vec![alias2],
-                });
-                &self.groups.last().unwrap().curr_name
-            }
+        if let Some(index) = index {
+            let group = &mut self.groups[index];
+            group.insert_alias(alias1);
+            group.insert_alias(alias2);
+            &group.curr_name
+        } else {
+            self.groups.push(AliasGroup {
+                curr_name: alias1,
+                aliases: vec![alias2],
+            });
+            &self.groups.last().unwrap().curr_name
         }
     }
 
@@ -184,12 +182,12 @@ impl AliasGroups {
             .expect("Name not found in any group");
         std::mem::swap(
             &mut group.curr_name,
-            &mut group.aliases.last_mut().expect("No aliases to shift"),
+            group.aliases.last_mut().expect("No aliases to shift"),
         );
     }
 
     pub(super) fn drop_alias(&mut self, alias: &String) {
-        let index = self.groups.iter().position(|group| group.contains(&alias));
+        let index = self.groups.iter().position(|group| group.contains(alias));
         match index {
             Some(index) => {
                 let group = &mut self.groups[index];

@@ -1,6 +1,6 @@
-use crate::smtlib2::Expr::*;
+use crate::smtlib2::Expr::{App, ReferenceCurrVal, ReferenceFinalVal, Var};
 use crate::smtlib2::HornClause;
-use crate::smtlib2::Operation::*;
+use crate::smtlib2::Operation::Equals;
 use crate::syn_utils::{
     get_assert_condition, get_borrowed_name, get_declared_var_name, get_macro_name,
 };
@@ -20,8 +20,9 @@ pub(super) fn translate_local_var_decl(
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
     alias_groups: &mut AliasGroups,
 ) {
+    #[allow(clippy::similar_names)]
     fn case_borrow(
-        reference_name: String,
+        reference_name: &String,
         initial_value: &syn::Expr,
         #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
     ) {
@@ -48,27 +49,27 @@ pub(super) fn translate_local_var_decl(
         new_clause.insert_head_query_param(current_value.clone());
         new_clause.insert_head_query_param(final_value.clone());
 
-        borrow_variable(&reference_name, &referenced_name, &mut new_clause);
+        borrow_variable(reference_name, &referenced_name, &mut new_clause);
 
         CHCs.push(new_clause);
     }
 
     fn case_create_alias(
-        new_alias_name: String,
-        rhs_name: &String,
+        new_alias_name: &String,
+        rhs_name: &str,
         alias_groups: &mut AliasGroups,
-        _query_params: &Vec<smtlib2::Expr>,
+        _query_params: &[smtlib2::Expr],
         #[allow(non_snake_case)] _CHCs: &mut Vec<HornClause>,
     ) {
-        alias_groups.add_alias(rhs_name.clone(), new_alias_name);
+        alias_groups.add_alias(rhs_name.to_string(), new_alias_name.to_string());
     }
 
     fn case_integer_init(
-        new_var_name: String,
+        new_var_name: &String,
         rhs: smtlib2::Expr,
         #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
     ) {
-        let new_query_param = Var(new_var_name);
+        let new_query_param = Var(new_var_name.clone());
         let mut new_clause = CHCs.create_next_CHC();
         assert!(
             !new_clause.head_contains(&new_query_param),
@@ -90,7 +91,7 @@ pub(super) fn translate_local_var_decl(
         .collect();
 
     borrow_utils::translate_assignment(
-        get_declared_var_name(&local),
+        &get_declared_var_name(local),
         syn_utils::get_init_expr(local).expect("Local variable not initialized"),
         CHCs,
         &query_params,
@@ -99,7 +100,6 @@ pub(super) fn translate_local_var_decl(
         case_create_alias,
         case_integer_init,
     );
-    return;
 }
 
 pub(super) fn translate_drop(
@@ -127,7 +127,7 @@ pub(super) fn translate_drop(
                 Some(())
             }
             Var(_) | ReferenceCurrVal(_) | ReferenceFinalVal(_) => None,
-            _ => panic!("Unexpected query parameter: {:?}", v),
+            _ => panic!("Unexpected query parameter: {v:?}"),
         })
         .unwrap_or_else(|| {
             // We may be dropping an alias, in which case we did not find it in the query parameters
@@ -140,14 +140,10 @@ pub(super) fn translate_assertion(
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
     alias_groups: &AliasGroups,
 ) {
-    let macro_name = get_macro_name(&stmt_macro);
-    assert_eq!(
-        macro_name, "assert",
-        "Unsupported macro name: {}",
-        macro_name
-    );
+    let macro_name = get_macro_name(stmt_macro);
+    assert_eq!(macro_name, "assert", "Unsupported macro name: {macro_name}");
 
-    let condition: syn::Expr = get_assert_condition(&stmt_macro);
+    let condition: syn::Expr = get_assert_condition(stmt_macro);
     let condition: smtlib2::Expr = translate_syn_expr(&condition, alias_groups);
 
     let last_query = CHCs

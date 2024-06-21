@@ -5,10 +5,7 @@ pub(crate) fn get_declared_var_name(local: &Local) -> String {
         match pat {
             syn::Pat::Ident(syn::PatIdent { ident, .. }) => ident.to_string(),
             syn::Pat::Type(syn::PatType { pat, .. }) => get_name(pat),
-            _ => panic!(
-                "Local variable declaration pattern is not an identifier {:?}",
-                pat
-            ),
+            _ => panic!("Local variable declaration pattern is not an identifier {pat:?}"),
         }
     }
 
@@ -26,9 +23,9 @@ pub(super) fn get_borrowed_name(expr: &syn::Expr) -> String {
     match expr {
         syn::Expr::Reference(reference) => match &*reference.expr {
             syn::Expr::Path(path) => get_var_name(path),
-            _ => panic!("Expected path expression in reference {:?}", reference),
+            _ => panic!("Expected path expression in reference {reference:?}"),
         },
-        _ => panic!("Expected reference expression {:?}", expr),
+        _ => panic!("Expected reference expression {expr:?}"),
     }
 }
 
@@ -42,11 +39,10 @@ pub(crate) fn get_macro_name(stmt_macro: &syn::StmtMacro) -> String {
 }
 
 pub(crate) fn get_assert_condition(stmt_macro: &syn::StmtMacro) -> syn::Expr {
-    let macro_name = get_macro_name(&stmt_macro);
+    let macro_name = get_macro_name(stmt_macro);
     assert_eq!(
         macro_name, "assert",
-        "get_assert_condition called with wrong macro: {}",
-        macro_name
+        "get_assert_condition called with wrong macro: {macro_name}"
     );
     let condition: syn::Expr = syn::parse2(stmt_macro.mac.tokens.clone())
         .expect("Failed to parse macro tokens as expression");
