@@ -4,13 +4,16 @@ use crate::drop_elaboration::ExtendedStmt::Stmt as ExStmt;
 use crate::drop_elaboration::{perform_drop_elaboration, ExtendedStmt};
 use crate::smtlib2::HornClause;
 use crate::syn_utils::get_declared_var_name;
-use crate::translate::stmt_translations::{translate_assertion, translate_drop};
+use crate::translate::assert_translation::translate_assertion;
 use crate::translate::utils::AliasGroups;
+use crate::translate::var_translations::{
+    translate_assignment, translate_drop, translate_local_var_decl,
+};
 
-mod borrow_utils;
-mod expr_translations;
-mod stmt_translations;
+mod assert_translation;
+mod syn_expr_translation;
 mod utils;
+mod var_translations;
 
 pub(crate) fn translate_item(item: &Item, #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>) {
     match item {
@@ -34,11 +37,12 @@ fn translate_stmt(
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
     alias_groups: &mut AliasGroups,
 ) {
+    #[allow(clippy::match_wildcard_for_single_variants)]
     match stmt {
         // Local variable declaration
         ExStmt(Stmt::Local(local)) => {
             println!("Stmt::Local: {}", get_declared_var_name(local));
-            stmt_translations::translate_local_var_decl(local, CHCs, alias_groups);
+            translate_local_var_decl(local, CHCs, alias_groups);
         }
         ExStmt(Stmt::Expr(expr, _semicolon)) => {
             println!("Stmt::Expr");
@@ -68,7 +72,7 @@ fn translate_expr(
     match expr {
         Expr::Assign(assign) => {
             println!("Expr::Assignment");
-            expr_translations::translate_assignment(assign, CHCs, alias_groups);
+            translate_assignment(assign, CHCs, alias_groups);
         }
 
         _ => {
