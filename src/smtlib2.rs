@@ -198,13 +198,15 @@ pub(crate) trait Smtlib2Display {
 impl Smtlib2Display for Vec<HornClause> {
     fn write_as_smtlib2(&self, mut output: Box<dyn Write>) -> std::io::Result<()> {
         writeln!(output, "(set-logic HORN)")?;
+        writeln!(output, "(set-option :fp.engine spacer)")?;
+        writeln!(output, "(set-option :model true)\n")?;
         for decl in self.generate_predicate_declarations() {
             writeln!(output, "{decl}")?;
         }
         for clause in self {
             writeln!(output, "{clause}")?;
         }
-        writeln!(output, "(check-sat)")?;
+        writeln!(output, "\n(check-sat)")?;
         writeln!(output, "(get-model)")
     }
 }

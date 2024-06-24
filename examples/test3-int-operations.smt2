@@ -1,4 +1,7 @@
 (set-logic HORN)
+(set-option :fp.engine spacer)
+(set-option :model true)
+
 (declare-fun q1 (Int) Bool)
 (declare-fun q2 (Int Int) Bool)
 (declare-fun q3 (Int) Bool)
@@ -11,5 +14,6 @@
 (assert (forall ((|a| Int) (|b| Int)) (=> (and (q2 |a| |b|)) (q3 |a|))))
 (assert (forall ((|a| Int)) (=> (and (q3 |a|)) (= (- 0 |a|) (- 0 8)))))
 (assert (forall ((|a| Int)) (=> (and (q3 |a|)) q4)))
+
 (check-sat)
 (get-model)
