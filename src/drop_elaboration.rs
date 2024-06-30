@@ -1,9 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
+use itertools::Itertools;
 use syn::{visit::Visit, Block, Local, StmtMacro};
-use syn::{Expr, Stmt};
+use syn::{Ident, Stmt};
 
-use crate::syn_utils::{get_assert_condition, get_declared_var_name, get_macro_name, get_var_name};
+use crate::syn_utils::{get_assert_condition, get_declared_var_name, get_macro_name};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum ExtendedStmt {
@@ -11,55 +12,60 @@ pub(crate) enum ExtendedStmt {
     Drop(String),
 }
 
-struct VarUsageCollector {
-    last_usages: HashMap<String, usize>,
-    current_stmt_index: usize,
+struct DeclaredVarCollector {
+    variables: HashSet<String>,
 }
 
-impl VarUsageCollector {
+impl DeclaredVarCollector {
     fn new() -> Self {
-        VarUsageCollector {
-            last_usages: HashMap::new(),
-            current_stmt_index: 0,
+        DeclaredVarCollector {
+            variables: HashSet::new(),
         }
     }
 }
 
-impl<'ast> Visit<'ast> for VarUsageCollector {
-    fn visit_expr(&mut self, expr: &'ast Expr) {
-        if let Expr::Path(path) = expr {
-            let var_name = get_var_name(path);
-            if self
-                .last_usages
-                .insert(var_name, self.current_stmt_index)
-                .is_none()
-            {
-                panic!(
-                    "Variable {} encountered before declaration",
-                    get_var_name(path)
-                );
-            }
-        }
-
-        syn::visit::visit_expr(self, expr);
-    }
-
+impl<'ast> Visit<'ast> for DeclaredVarCollector {
     fn visit_local(&mut self, local: &'ast Local) {
         let var_name = get_declared_var_name(local);
-        if self
-            .last_usages
-            .insert(var_name, self.current_stmt_index)
-            .is_some()
-        {
-            panic!("Variable {} redeclared", get_declared_var_name(local));
-        }
+        let already_contained = !self.variables.insert(var_name);
+        assert!(
+            !already_contained,
+            "Variable {} redeclared",
+            get_declared_var_name(local)
+        );
 
         syn::visit::visit_local(self, local);
     }
 
-    fn visit_stmt(&mut self, stmt: &'ast Stmt) {
-        syn::visit::visit_stmt(self, stmt);
-        self.current_stmt_index += 1;
+    fn visit_stmt_macro(&mut self, stmt_macro: &'ast StmtMacro) {
+        let macro_name = get_macro_name(stmt_macro);
+        if macro_name == "assert" {
+            let condition = get_assert_condition(stmt_macro);
+            self.visit_expr(&condition);
+        } else {
+            panic!("Unsupported macro in drop elaboration: {macro_name}");
+        }
+
+        syn::visit::visit_stmt_macro(self, stmt_macro);
+    }
+}
+
+struct VarCollector {
+    variables: HashSet<String>,
+}
+
+impl VarCollector {
+    fn new() -> Self {
+        Self {
+            variables: HashSet::new(),
+        }
+    }
+}
+
+impl<'ast> Visit<'ast> for VarCollector {
+    fn visit_ident(&mut self, ident: &'ast Ident) {
+        self.variables.insert(ident.to_string());
+        syn::visit::visit_ident(self, ident);
     }
 
     fn visit_stmt_macro(&mut self, stmt_macro: &'ast StmtMacro) {
@@ -76,36 +82,47 @@ impl<'ast> Visit<'ast> for VarUsageCollector {
 }
 
 pub(crate) fn perform_drop_elaboration(block: &Block) -> Vec<ExtendedStmt> {
-    let to_drop_per_index: HashMap<usize, HashSet<String>> = {
-        let mut collector = VarUsageCollector::new();
+    let mut variables_to_drop: HashSet<String> = {
+        let mut collector = DeclaredVarCollector::new();
         collector.visit_block(block);
-
-        let mut last_usages = HashMap::new();
-        for (var, stmt_index) in collector.last_usages {
-            last_usages
-                .entry(stmt_index)
-                .or_insert_with(HashSet::new)
-                .insert(var);
-        }
-
-        last_usages
+        collector.variables
     };
 
-    let mut extended_stmts = Vec::new();
+    let mut extended_stmts: Vec<ExtendedStmt> = block
+        .stmts
+        .iter()
+        .cloned()
+        .map(ExtendedStmt::Stmt)
+        .collect();
 
-    for (stmt_index, stmt) in block.stmts.iter().enumerate() {
-        extended_stmts.push(ExtendedStmt::Stmt(stmt.clone()));
+    for i in (0..extended_stmts.len()).rev() {
+        match &extended_stmts[i] {
+            ExtendedStmt::Stmt(stmt) => {
+                let last_used_vars: Vec<String> = {
+                    let mut collector = VarCollector::new();
+                    collector.visit_stmt(stmt);
+                    collector
+                        .variables
+                        .iter()
+                        .filter(|var| variables_to_drop.contains(*var))
+                        .sorted()
+                        .cloned()
+                        .collect()
+                };
 
-        let mut vars_to_drop = to_drop_per_index
-            .get(&stmt_index)
-            .map_or_else(Vec::new, |vars| vars.iter().collect::<Vec<_>>());
-
-        vars_to_drop.sort();
-
-        for var in vars_to_drop {
-            extended_stmts.push(ExtendedStmt::Drop(var.clone()));
+                for var in last_used_vars.iter().rev() {
+                    extended_stmts.insert(i + 1, ExtendedStmt::Drop(var.clone()));
+                    variables_to_drop.remove(var);
+                }
+            }
+            ExtendedStmt::Drop(_) => panic!("Drop statement in drop elaboration"),
         }
     }
+
+    assert!(
+        variables_to_drop.is_empty(),
+        "Variables not dropped: {variables_to_drop:?}"
+    );
 
     extended_stmts
 }
