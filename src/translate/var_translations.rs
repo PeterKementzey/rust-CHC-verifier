@@ -3,10 +3,10 @@ use syn::ExprAssign;
 use crate::smtlib2::Expr::{App, ReferenceCurrVal, ReferenceFinalVal, Var};
 use crate::smtlib2::HornClause;
 use crate::smtlib2::Operation::Equals;
-use crate::syn_utils::{get_borrowed_name, get_declared_var_name};
+use crate::syn_utils::get_declared_var_name;
 use crate::translate::syn_expr_translation::translate_syn_expr;
 use crate::translate::utils::{AliasGroups, CHCSystem};
-use crate::translate::var_translations::util::{assign, borrow_variable, drop_reference};
+use crate::translate::var_translations::util::{assign, case_borrow, drop_reference};
 use crate::{smtlib2, syn_utils};
 
 ///  Local variable initialization can be one of the following:
@@ -19,40 +19,6 @@ pub(super) fn translate_local_var_decl(
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
     alias_groups: &mut AliasGroups,
 ) {
-    #[allow(clippy::similar_names)]
-    fn case_borrow(
-        #[allow(clippy::ptr_arg)] reference_name: &String,
-        initial_value: &syn::Expr,
-        #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
-    ) {
-        let referenced_name = get_borrowed_name(initial_value);
-        let referenced_var = Var(referenced_name.clone());
-        let current_value = ReferenceCurrVal(reference_name.clone());
-        let final_value = ReferenceFinalVal(reference_name.clone());
-
-        let mut new_clause = CHCs.create_next_CHC();
-
-        assert!(
-            !new_clause.head_contains(&current_value),
-            "Reference already exists in latest query"
-        );
-        assert!(
-            !new_clause.head_contains(&final_value),
-            "Final value already exists in latest query"
-        );
-        assert!(
-            new_clause.head_contains(&referenced_var),
-            "Referenced variable not found in latest query"
-        );
-
-        new_clause.insert_head_query_param(current_value.clone());
-        new_clause.insert_head_query_param(final_value.clone());
-
-        borrow_variable(reference_name, &referenced_name, &mut new_clause);
-
-        CHCs.push(new_clause);
-    }
-
     fn case_create_alias(
         new_alias_name: &String,
         rhs_name: &str,
@@ -108,23 +74,14 @@ pub(super) fn translate_assignment(
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
     alias_groups: &mut AliasGroups,
 ) {
-    fn case_borrow(
-        _lhs: &smtlib2::Expr,
-        _initial_value: &syn::Expr,
-        #[allow(non_snake_case)]
-        #[allow(clippy::ptr_arg)]
-        _CHCs: &mut Vec<HornClause>,
-    ) {
-        unimplemented!("Borrow not implemented yet")
-    }
-
-    fn case_create_alias(
+    fn find_ref_name_and_drop(
         lhs: &smtlib2::Expr,
-        rhs_name: &str,
         alias_groups: &mut AliasGroups,
         query_params: &[smtlib2::Expr],
-        #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
-    ) {
+        #[allow(non_snake_case)]
+        #[allow(clippy::ptr_arg)]
+        CHCs: &mut Vec<HornClause>,
+    ) -> String {
         // if we are creating a new alias the lhs should just be a variable, not dereferenced
         let lhs_name = match &lhs {
             Var(name) => {
@@ -134,8 +91,31 @@ pub(super) fn translate_assignment(
             }
             _ => panic!("Left hand side is not a variable"),
         };
-
         drop_reference(&lhs_name, CHCs, alias_groups);
+        lhs_name
+    }
+
+    fn case_drop_and_borrow(
+        lhs: &smtlib2::Expr,
+        rhs: &syn::Expr,
+        alias_groups: &mut AliasGroups,
+        query_params: &[smtlib2::Expr],
+        #[allow(non_snake_case)]
+        #[allow(clippy::ptr_arg)]
+        CHCs: &mut Vec<HornClause>,
+    ) {
+        let lhs_name = find_ref_name_and_drop(lhs, alias_groups, query_params, CHCs);
+        case_borrow(&lhs_name, rhs, alias_groups, query_params, CHCs);
+    }
+
+    fn case_create_alias(
+        lhs: &smtlib2::Expr,
+        rhs_name: &str,
+        alias_groups: &mut AliasGroups,
+        query_params: &[smtlib2::Expr],
+        #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
+    ) {
+        let lhs_name = find_ref_name_and_drop(lhs, alias_groups, query_params, CHCs);
         alias_groups.add_alias(rhs_name.to_string(), lhs_name.clone());
     }
 
@@ -152,7 +132,7 @@ pub(super) fn translate_assignment(
             }
         };
         let mut new_clause = CHCs.create_next_CHC();
-        let assignment: smtlib2::Expr = App(Equals, vec![updated_lhs.clone(), rhs]);
+        let assignment = App(Equals, vec![updated_lhs.clone(), rhs]);
         new_clause.body.push(assignment);
         new_clause.replace_head_query_param(lhs, updated_lhs);
         CHCs.push(new_clause);
@@ -174,7 +154,7 @@ pub(super) fn translate_assignment(
         CHCs,
         &query_params,
         alias_groups,
-        case_borrow,
+        case_drop_and_borrow,
         case_create_alias,
         case_integer_assign,
     );
@@ -218,18 +198,24 @@ mod util {
     use crate::smtlib2::Expr::{App, ReferenceCurrVal, ReferenceFinalVal, Var};
     use crate::smtlib2::HornClause;
     use crate::smtlib2::Operation::Equals;
-    use crate::syn_utils::is_borrow;
+    use crate::syn_utils::{get_borrowed_name, is_borrow};
     use crate::translate::syn_expr_translation::translate_syn_expr;
     use crate::translate::utils::{AliasGroups, CHCSystem};
 
     #[allow(clippy::too_many_arguments)]
     pub(super) fn assign<LhsType>(
-        lhs_name: &LhsType,
+        lhs: &LhsType,
         rhs: &syn::Expr,
         #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
         query_params: &[smtlib2::Expr],
         alias_groups: &mut AliasGroups,
-        case_borrow: fn(&LhsType, &syn::Expr, &mut Vec<HornClause>),
+        case_borrow: fn(
+            &LhsType,
+            &syn::Expr,
+            alias_groups: &mut AliasGroups,
+            query_params: &[smtlib2::Expr],
+            &mut Vec<HornClause>,
+        ),
         case_create_alias: fn(
             &LhsType,
             &str,
@@ -240,7 +226,7 @@ mod util {
         case_integer_assign: fn(&LhsType, smtlib2::Expr, &mut Vec<HornClause>),
     ) {
         if is_borrow(rhs) {
-            case_borrow(lhs_name, rhs, CHCs); // option 1: borrow - we know this from syntax
+            case_borrow(lhs, rhs, alias_groups, query_params, CHCs); // option 1: borrow - we know this from syntax
         } else {
             let rhs: smtlib2::Expr = translate_syn_expr(rhs, alias_groups);
 
@@ -253,11 +239,11 @@ mod util {
                         query_params.contains(&ReferenceCurrVal(alias_curr_name.clone()))
                     } =>
                 {
-                    case_create_alias(lhs_name, &rhs_name, alias_groups, query_params, CHCs);
+                    case_create_alias(lhs, &rhs_name, alias_groups, query_params, CHCs);
                     // option 2: create alias - we know from query params whether rhs is a reference
                 }
 
-                _ => case_integer_assign(lhs_name, rhs, CHCs), // option 3: integer assignment - if neither of the above
+                _ => case_integer_assign(lhs, rhs, CHCs), // option 3: integer assignment - if neither of the above
             }
         }
     }
@@ -337,6 +323,42 @@ mod util {
                 App(Equals, vec![old_final_val.clone(), old_curr_val.clone()]);
             new_clause.body.push(final_val_eq_curr_val);
         }
+        CHCs.push(new_clause);
+    }
+
+    #[allow(clippy::similar_names)]
+    pub(super) fn case_borrow(
+        #[allow(clippy::ptr_arg)] reference_name: &String,
+        initial_value: &syn::Expr,
+        _alias_groups: &mut AliasGroups,
+        _query_params: &[smtlib2::Expr],
+        #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
+    ) {
+        let referenced_name = get_borrowed_name(initial_value);
+        let referenced_var = Var(referenced_name.clone());
+        let current_value = ReferenceCurrVal(reference_name.clone());
+        let final_value = ReferenceFinalVal(reference_name.clone());
+
+        let mut new_clause = CHCs.create_next_CHC();
+
+        assert!(
+            !new_clause.head_contains(&current_value),
+            "Reference already exists in latest query"
+        );
+        assert!(
+            !new_clause.head_contains(&final_value),
+            "Final value already exists in latest query"
+        );
+        assert!(
+            new_clause.head_contains(&referenced_var),
+            "Referenced variable not found in latest query"
+        );
+
+        new_clause.insert_head_query_param(current_value.clone());
+        new_clause.insert_head_query_param(final_value.clone());
+
+        borrow_variable(reference_name, &referenced_name, &mut new_clause);
+
         CHCs.push(new_clause);
     }
 }
