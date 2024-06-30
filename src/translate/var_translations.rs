@@ -82,7 +82,7 @@ pub(super) fn translate_assignment(
         #[allow(clippy::ptr_arg)]
         CHCs: &mut Vec<HornClause>,
     ) -> String {
-        // if we are creating a new alias the lhs should just be a variable, not dereferenced
+        // if we are creating an alias then from syntax lhs seems like a `Var`, but is actually a `ReferenceCurrVal`
         let lhs_name = match &lhs {
             Var(name) => {
                 let alias_curr_name = alias_groups.find_curr_name(name).unwrap_or(name);
@@ -202,6 +202,25 @@ mod util {
     use crate::translate::syn_expr_translation::translate_syn_expr;
     use crate::translate::utils::{AliasGroups, CHCSystem};
 
+    /// - There are 2 functions:
+    ///   - Variable declaration
+    ///   - Assignment
+    /// - Variable declaration:
+    ///   - (No initialization - disallowed for now (or forever))
+    ///   - Simple assignment (integer)
+    ///   - Assignment of other borrow (alias creation)
+    ///     - We know this from the fact that rhs is a reference
+    ///   - Borrow of variable (could be that there is already a borrow to this variable in which case also alias)
+    ///     - We know this from syntax
+    /// - Assignment
+    ///   - Simple assignment (integer)
+    ///   - Assignment of other borrow (alias creation)
+    ///     - We know this from both left and right being a reference
+    ///   - Borrow of variable (could be that there is already a borrow to this variable in which case also alias)
+    ///     - We know this from syntax
+    ///
+    /// We start with checking in syntax if it's a borrow. If not we can parse the rhs.Then we check if rhs is a reference.
+    /// If it is, it means we are creating an alias. If it's not, we are doing an integer assignment.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn assign<LhsType>(
         lhs: &LhsType,
@@ -226,7 +245,8 @@ mod util {
         case_integer_assign: fn(&LhsType, smtlib2::Expr, &mut Vec<HornClause>),
     ) {
         if is_borrow(rhs) {
-            case_borrow(lhs, rhs, alias_groups, query_params, CHCs); // option 1: borrow - we know this from syntax
+            // option 1: borrow - we know this from syntax
+            case_borrow(lhs, rhs, alias_groups, query_params, CHCs);
         } else {
             let rhs: smtlib2::Expr = translate_syn_expr(rhs, alias_groups);
 
@@ -239,11 +259,12 @@ mod util {
                         query_params.contains(&ReferenceCurrVal(alias_curr_name.clone()))
                     } =>
                 {
-                    case_create_alias(lhs, &rhs_name, alias_groups, query_params, CHCs);
                     // option 2: create alias - we know from query params whether rhs is a reference
+                    case_create_alias(lhs, &rhs_name, alias_groups, query_params, CHCs);
                 }
 
-                _ => case_integer_assign(lhs, rhs, CHCs), // option 3: integer assignment - if neither of the above
+                // option 3: integer assignment - if neither of the above
+                _ => case_integer_assign(lhs, rhs, CHCs),
             }
         }
     }

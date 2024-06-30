@@ -170,10 +170,6 @@ impl AliasGroups {
         }
     }
 
-    pub(super) fn is_curr_name(&self, name: &String) -> bool {
-        self.groups.iter().any(|group| group.curr_name == *name)
-    }
-
     pub(super) fn shift_curr_name_in_group(&mut self, curr_name: &String) {
         let group = self
             .groups
