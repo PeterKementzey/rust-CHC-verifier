@@ -1,4 +1,4 @@
-use syn::Local;
+use syn::{Expr, Local};
 
 pub(crate) fn get_declared_var_name(local: &Local) -> String {
     fn get_name(pat: &syn::Pat) -> String {
@@ -58,4 +58,14 @@ pub(crate) fn get_init_expr(local: &Local) -> Option<&syn::Expr> {
         .init
         .as_ref()
         .map(|syn::LocalInit { expr, .. }| &**expr)
+}
+
+pub(crate) fn get_else_block(if_expr: &syn::ExprIf) -> Option<&syn::Block> {
+    if_expr.else_branch.as_ref().map(|(_, block)| {
+        if let Expr::Block(block) = block.as_ref() {
+            &block.block
+        } else {
+            panic!("Else branch of if statement is not a block")
+        }
+    })
 }

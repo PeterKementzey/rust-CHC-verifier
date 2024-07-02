@@ -4,12 +4,36 @@ use itertools::Itertools;
 use syn::{visit::Visit, Block, Local, StmtMacro};
 use syn::{Ident, Stmt};
 
-use crate::syn_utils::{get_assert_condition, get_declared_var_name, get_macro_name};
+use crate::syn_utils;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum ExtendedStmt {
     Stmt(Stmt),
     Drop(String),
+    If(syn::Expr, Vec<ExtendedStmt>, Option<Vec<ExtendedStmt>>),
+}
+
+impl ExtendedStmt {
+    fn from(stmt: Stmt) -> Self {
+        if let Stmt::Expr(syn::Expr::If(if_expr), _) = &stmt {
+            let condition = if_expr.cond.as_ref().clone();
+            let then_block = ExtendedStmt::from_block(&if_expr.then_branch);
+            let else_block = syn_utils::get_else_block(if_expr).map(ExtendedStmt::from_block);
+
+            ExtendedStmt::If(condition, then_block, else_block)
+        } else {
+            ExtendedStmt::Stmt(stmt)
+        }
+    }
+
+    fn from_block(block: &Block) -> Vec<Self> {
+        block
+            .stmts
+            .iter()
+            .cloned()
+            .map(ExtendedStmt::from)
+            .collect()
+    }
 }
 
 struct DeclaredVarCollector {
@@ -26,21 +50,21 @@ impl DeclaredVarCollector {
 
 impl<'ast> Visit<'ast> for DeclaredVarCollector {
     fn visit_local(&mut self, local: &'ast Local) {
-        let var_name = get_declared_var_name(local);
+        let var_name = syn_utils::get_declared_var_name(local);
         let already_contained = !self.variables.insert(var_name);
         assert!(
             !already_contained,
             "Variable {} redeclared",
-            get_declared_var_name(local)
+            syn_utils::get_declared_var_name(local)
         );
 
         syn::visit::visit_local(self, local);
     }
 
     fn visit_stmt_macro(&mut self, stmt_macro: &'ast StmtMacro) {
-        let macro_name = get_macro_name(stmt_macro);
+        let macro_name = syn_utils::get_macro_name(stmt_macro);
         if macro_name == "assert" {
-            let condition = get_assert_condition(stmt_macro);
+            let condition = syn_utils::get_assert_condition(stmt_macro);
             self.visit_expr(&condition);
         } else {
             panic!("Unsupported macro in drop elaboration: {macro_name}");
@@ -69,9 +93,9 @@ impl<'ast> Visit<'ast> for VarCollector {
     }
 
     fn visit_stmt_macro(&mut self, stmt_macro: &'ast StmtMacro) {
-        let macro_name = get_macro_name(stmt_macro);
+        let macro_name = syn_utils::get_macro_name(stmt_macro);
         if macro_name == "assert" {
-            let condition = get_assert_condition(stmt_macro);
+            let condition = syn_utils::get_assert_condition(stmt_macro);
             self.visit_expr(&condition);
         } else {
             panic!("Unsupported macro in drop elaboration: {macro_name}");
@@ -88,12 +112,7 @@ pub(crate) fn perform_drop_elaboration(block: &Block) -> Vec<ExtendedStmt> {
         collector.variables
     };
 
-    let mut extended_stmts: Vec<ExtendedStmt> = block
-        .stmts
-        .iter()
-        .cloned()
-        .map(ExtendedStmt::Stmt)
-        .collect();
+    let mut extended_stmts: Vec<ExtendedStmt> = ExtendedStmt::from_block(block);
 
     for i in (0..extended_stmts.len()).rev() {
         match &extended_stmts[i] {
@@ -114,6 +133,9 @@ pub(crate) fn perform_drop_elaboration(block: &Block) -> Vec<ExtendedStmt> {
                     extended_stmts.insert(i + 1, ExtendedStmt::Drop(var.clone()));
                     variables_to_drop.remove(var);
                 }
+            }
+            ExtendedStmt::If(condition, then_block, else_block) => {
+                // TODO
             }
             ExtendedStmt::Drop(_) => panic!("Drop statement in drop elaboration"),
         }
