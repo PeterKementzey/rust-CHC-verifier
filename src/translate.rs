@@ -5,12 +5,14 @@ use crate::drop_elaboration::{perform_drop_elaboration, ExtendedStmt};
 use crate::smtlib2::HornClause;
 use crate::syn_utils::get_declared_var_name;
 use crate::translate::assert_translation::translate_assertion;
+use crate::translate::if_translation::translate_if;
 use crate::translate::utils::AliasGroups;
 use crate::translate::var_translations::{
     translate_assignment, translate_drop, translate_local_var_decl,
 };
 
 mod assert_translation;
+mod if_translation;
 mod syn_expr_translation;
 mod utils;
 mod var_translations;
@@ -56,6 +58,10 @@ fn translate_stmt(
         ExtendedStmt::Drop(var) => {
             println!("ExStmt::Drop: {var}");
             translate_drop(var, CHCs, alias_groups);
+        }
+        if_stmt @ ExtendedStmt::If(_, _, _) => {
+            println!("ExStmt::If");
+            translate_if(if_stmt, CHCs, alias_groups);
         }
 
         _ => {

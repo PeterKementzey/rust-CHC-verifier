@@ -219,7 +219,7 @@ mod util {
     ///   - Borrow of variable (could be that there is already a borrow to this variable in which case also alias)
     ///     - We know this from syntax
     ///
-    /// We start with checking in syntax if it's a borrow. If not we can parse the rhs.Then we check if rhs is a reference.
+    /// We start with checking in syntax if it's a borrow. If not we can parse the rhs. Then we check if rhs is a reference.
     /// If it is, it means we are creating an alias. If it's not, we are doing an integer assignment.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn assign<LhsType>(
