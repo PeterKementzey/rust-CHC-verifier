@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use itertools::Itertools;
-use syn::{visit::Visit, Block, Local, StmtMacro};
+use syn::{visit::Visit, Block, ExprIf, Local, StmtMacro};
 use syn::{Ident, Stmt};
 
 use crate::syn_utils;
@@ -72,6 +72,30 @@ impl<'ast> Visit<'ast> for DeclaredVarCollector {
 
         syn::visit::visit_stmt_macro(self, stmt_macro);
     }
+
+    fn visit_expr_if(&mut self, _i: &'ast ExprIf) {
+        // variables declared in smaller scopes should not be considered
+    }
+}
+
+impl DeclaredVarCollector {
+    fn visit_extended_stmt_block(&mut self, stmts: &Vec<ExtendedStmt>) {
+        for stmt in stmts {
+            self.visit_extended_stmt(stmt);
+        }
+    }
+
+    fn visit_extended_stmt(&mut self, stmt: &ExtendedStmt) {
+        match stmt {
+            ExtendedStmt::Stmt(stmt) => self.visit_stmt(stmt),
+            ExtendedStmt::Drop(var) => {
+                panic!("Drop statement in drop elaboration: {var}")
+            }
+            ExtendedStmt::If(_, _, _) => {
+                // variables declared in smaller scopes should not be considered
+            }
+        }
+    }
 }
 
 struct VarCollector {
@@ -105,17 +129,31 @@ impl<'ast> Visit<'ast> for VarCollector {
     }
 }
 
-pub(crate) fn perform_drop_elaboration(block: &Block) -> Vec<ExtendedStmt> {
-    let mut variables_to_drop: HashSet<String> = {
-        let mut collector = DeclaredVarCollector::new();
-        collector.visit_block(block);
-        collector.variables
-    };
+impl VarCollector {
+    fn visit_extended_stmt(&mut self, stmt: &ExtendedStmt) {
+        match stmt {
+            ExtendedStmt::Stmt(stmt) => self.visit_stmt(stmt),
+            ExtendedStmt::Drop(var) => {
+                panic!("Drop statement in drop elaboration: {var}")
+            }
+            ExtendedStmt::If(condition, then_block, else_block) => {
+                self.visit_expr(condition);
+                for stmt in then_block {
+                    self.visit_extended_stmt(stmt);
+                }
+                if let Some(else_block) = else_block {
+                    for stmt in else_block {
+                        self.visit_extended_stmt(stmt);
+                    }
+                }
+            }
+        }
+    }
+}
 
-    let mut extended_stmts: Vec<ExtendedStmt> = ExtendedStmt::from_block(block);
-
-    for i in (0..extended_stmts.len()).rev() {
-        match &extended_stmts[i] {
+fn add_drops_to_block(stmts: &mut Vec<ExtendedStmt>, variables_to_drop: &mut HashSet<String>) {
+    for i in (0..stmts.len()).rev() {
+        match &mut stmts[i] {
             ExtendedStmt::Stmt(stmt) => {
                 let last_used_vars: Vec<String> = {
                     let mut collector = VarCollector::new();
@@ -130,16 +168,67 @@ pub(crate) fn perform_drop_elaboration(block: &Block) -> Vec<ExtendedStmt> {
                 };
 
                 for var in last_used_vars.iter().rev() {
-                    extended_stmts.insert(i + 1, ExtendedStmt::Drop(var.clone()));
+                    stmts.insert(i + 1, ExtendedStmt::Drop(var.clone()));
                     variables_to_drop.remove(var);
                 }
             }
-            ExtendedStmt::If(condition, then_block, else_block) => {
-                // TODO
+            if_stmt @ ExtendedStmt::If(_, _, _) => {
+                let mut last_used_vars: HashSet<String> = {
+                    let mut collector = VarCollector::new();
+                    collector.visit_extended_stmt(if_stmt);
+                    collector
+                        .variables
+                        .iter()
+                        .filter(|var| variables_to_drop.contains(*var))
+                        .cloned()
+                        .collect()
+                };
+
+                variables_to_drop.retain(|var| !last_used_vars.contains(var));
+
+                #[allow(clippy::items_after_statements)]
+                fn add_drops_to_if_branch(
+                    branch_stmts: &mut Vec<ExtendedStmt>,
+                    last_used_vars: &mut HashSet<String>,
+                ) {
+                    let locally_declared_vars: HashSet<String> = {
+                        let mut collector = DeclaredVarCollector::new();
+                        collector.visit_extended_stmt_block(branch_stmts);
+                        collector.variables
+                    };
+                    last_used_vars.extend(locally_declared_vars.iter().cloned());
+                    add_drops_to_block(branch_stmts, last_used_vars);
+                    let remaining_vars: Vec<String> =
+                        last_used_vars.iter().sorted().cloned().collect();
+                    for var in remaining_vars.iter().rev() {
+                        branch_stmts.insert(0, ExtendedStmt::Drop(var.clone()));
+                    }
+                }
+
+                if let ExtendedStmt::If(_, then_block, else_block) = if_stmt {
+                    add_drops_to_if_branch(then_block, &mut last_used_vars.clone());
+                    if let Some(else_block) = else_block {
+                        add_drops_to_if_branch(else_block, &mut last_used_vars);
+                    }
+                } else {
+                    unreachable!()
+                }
             }
             ExtendedStmt::Drop(_) => panic!("Drop statement in drop elaboration"),
         }
     }
+}
+
+pub(crate) fn perform_drop_elaboration(block: &Block) -> Vec<ExtendedStmt> {
+    let mut variables_to_drop: HashSet<String> = {
+        let mut collector = DeclaredVarCollector::new();
+        collector.visit_block(block);
+        collector.variables
+    };
+
+    let mut extended_stmts: Vec<ExtendedStmt> = ExtendedStmt::from_block(block);
+
+    add_drops_to_block(&mut extended_stmts, &mut variables_to_drop);
 
     assert!(
         variables_to_drop.is_empty(),
