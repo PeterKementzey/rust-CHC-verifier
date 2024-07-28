@@ -59,6 +59,10 @@ fn translate_stmt(
             println!("ExStmt::Drop: {var}");
             translate_drop(var, CHCs, alias_groups);
         }
+        ExtendedStmt::LastUseBeforeOverwrite(var) => {
+            println!("ExStmt::LastUseBeforeOverwrite: {var}");
+            // TODO: Implement
+        }
         if_stmt @ ExtendedStmt::If(_, _, _) => {
             println!("ExStmt::If");
             translate_if(if_stmt, CHCs, alias_groups);
