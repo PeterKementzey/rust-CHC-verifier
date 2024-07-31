@@ -5,14 +5,13 @@ use crate::smtlib2::Operation::{
     NotEquals, Or, Sub,
 };
 use crate::syn_utils::get_var_name;
-use crate::translate::utils::AliasGroups;
 
-pub(super) fn translate_syn_expr(expr: &syn::Expr, alias_groups: &AliasGroups) -> smtlib2::Expr {
+pub(super) fn translate_syn_expr(expr: &syn::Expr) -> smtlib2::Expr {
     match expr {
         // Binary operation
         syn::Expr::Binary(binary) => {
-            let left = translate_syn_expr(&binary.left, alias_groups);
-            let right = translate_syn_expr(&binary.right, alias_groups);
+            let left = translate_syn_expr(&binary.left);
+            let right = translate_syn_expr(&binary.right);
             match binary.op {
                 syn::BinOp::Add(_) => App(Add, vec![left, right]),
                 syn::BinOp::Sub(_) => App(Sub, vec![left, right]),
@@ -38,16 +37,14 @@ pub(super) fn translate_syn_expr(expr: &syn::Expr, alias_groups: &AliasGroups) -
         }
         // Unary operation
         syn::Expr::Unary(unary) => {
-            let expr = translate_syn_expr(&unary.expr, alias_groups);
+            let expr = translate_syn_expr(&unary.expr);
             match unary.op {
                 syn::UnOp::Not(_) => App(Not, vec![expr]),
                 syn::UnOp::Neg(_) => App(Sub, vec![Const(0), expr]),
                 syn::UnOp::Deref(_) => {
                     // If we are dereferencing a variable, it has to be a reference (borrow)
                     if let Var(name) = expr {
-                        ReferenceCurrVal(
-                            alias_groups.find_curr_name(&name).unwrap_or(&name).clone(),
-                        )
+                        ReferenceCurrVal(name)
                     } else {
                         panic!("Dereference of non-variable")
                     }
@@ -56,7 +53,7 @@ pub(super) fn translate_syn_expr(expr: &syn::Expr, alias_groups: &AliasGroups) -
             }
         }
         // Parentheses
-        syn::Expr::Paren(paren) => translate_syn_expr(&paren.expr, alias_groups),
+        syn::Expr::Paren(paren) => translate_syn_expr(&paren.expr),
         // Variable
         syn::Expr::Path(path) => Var(get_var_name(path)),
         // Integer constant

@@ -54,6 +54,16 @@ fn add_drops_to_block(
     for i in (0..stmts.len()).rev() {
         match &mut stmts[i] {
             ref ex_stmt @ ExtendedStmt::Stmt(ref stmt) => {
+                let (last_used_vars, last_used_before_overwrite): (Vec<String>, Vec<String>) =
+                    find_last_used_and_overwritten_vars_in_stmt(
+                        ex_stmt,
+                        variables_to_drop,
+                        overwritten_variables,
+                    );
+
+                // need to remove first, then add, as we may need to readd
+                overwritten_variables.retain(|var| !last_used_before_overwrite.contains(var));
+
                 // in lexical lifetimes if a reference is overwritten,
                 // then the reference should be dropped after the previous use
                 if let Stmt::Expr(Expr::Assign(ExprAssign { left, .. }), _semicolon) = stmt {
@@ -63,21 +73,13 @@ fn add_drops_to_block(
                     }
                 }
 
-                let (last_used_vars, last_used_before_overwrite): (Vec<String>, Vec<String>) =
-                    find_last_used_and_overwritten_vars_in_stmt(
-                        ex_stmt,
-                        variables_to_drop,
-                        overwritten_variables,
-                    );
+                for var in last_used_before_overwrite.iter().rev() {
+                    stmts.insert(i + 1, ExtendedStmt::LastUseBeforeOverwrite(var.clone()));
+                }
 
                 for var in last_used_vars.iter().rev() {
                     stmts.insert(i + 1, ExtendedStmt::Drop(var.clone()));
                     variables_to_drop.remove(var);
-                }
-
-                for var in last_used_before_overwrite.iter().rev() {
-                    stmts.insert(i + 1, ExtendedStmt::LastUseBeforeOverwrite(var.clone()));
-                    overwritten_variables.remove(var);
                 }
             }
             if_stmt @ ExtendedStmt::If(_, _, _) => {

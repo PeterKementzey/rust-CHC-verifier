@@ -2,12 +2,11 @@ use crate::drop_elaboration::ExtendedStmt;
 use crate::smtlib2::{Expr, HornClause, Operation};
 use crate::translate::syn_expr_translation::translate_syn_expr;
 use crate::translate::translate_stmt;
-use crate::translate::utils::{AliasGroups, CHCSystem};
+use crate::translate::utils::CHCSystem;
 
 pub(super) fn translate_if(
     if_stmt: &ExtendedStmt,
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
-    alias_groups: &mut AliasGroups,
 ) {
     if let ExtendedStmt::If(condition, then_block, else_block) = if_stmt {
         // note: at the end of the if block if all goes well then both queries should have the exact same parameters, same variables were dropped
@@ -16,11 +15,13 @@ pub(super) fn translate_if(
         println!("Then block: {then_block:?}");
         println!("Else block: {:?}", else_block.as_ref().unwrap());
 
+        #[allow(non_snake_case)]
         let mut then_CHCs: Vec<HornClause> = Vec::new();
+        #[allow(non_snake_case)]
         let mut else_CHCs: Vec<HornClause> = Vec::new();
         // let mut then_alias_groups = alias_groups.clone(); // TODO
 
-        let condition = translate_syn_expr(&condition, alias_groups);
+        let condition = translate_syn_expr(condition);
 
         let mut if_clause = CHCs.create_next_CHC();
         if_clause.body.push(condition.clone());
@@ -33,7 +34,7 @@ pub(super) fn translate_if(
         else_CHCs.push(else_clause);
 
         for stmt in then_block {
-            translate_stmt(stmt, &mut then_CHCs, alias_groups);
+            translate_stmt(stmt, &mut then_CHCs);
         }
 
         // TODO else
@@ -42,10 +43,10 @@ pub(super) fn translate_if(
             .get_latest_query()
             .unwrap()
             .to_expr_without_trailing_apostrophes();
-        
+
         CHCs.append(&mut then_CHCs);
         CHCs.append(&mut else_CHCs);
-        
+
         // TODO check that the last query of else block is equal to the last query of the else block
 
         let connecting_clause_else = CHCs.create_next_CHC();
