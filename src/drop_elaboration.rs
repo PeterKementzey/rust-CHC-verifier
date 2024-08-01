@@ -82,6 +82,7 @@ fn add_drops_to_block(
                     variables_to_drop.remove(var);
                 }
             }
+
             if_stmt @ ExtendedStmt::If(_, _, _) => {
                 let (mut last_used_vars, mut last_used_before_overwrite): (
                     HashSet<String>,
@@ -138,6 +139,7 @@ fn add_drops_to_block(
                     }
                 }
             }
+
             ExtendedStmt::Drop(var) | ExtendedStmt::LastUseBeforeOverwrite(var) => {
                 panic!("Drop/LastUseBeforeOverwrite statement in drop elaboration: {var}")
             }

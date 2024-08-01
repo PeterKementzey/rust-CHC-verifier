@@ -73,8 +73,6 @@ fn main() {
 }
 
 fn setup_logging() {
-    use std::io::Write;
-
     env_logger::builder()
         .format(|buf, record| {
             let level = match record.level() {

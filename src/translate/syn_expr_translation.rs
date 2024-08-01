@@ -20,12 +20,6 @@ pub(super) fn translate_syn_expr(expr: &syn::Expr) -> smtlib2::Expr {
                 syn::BinOp::Rem(_) => App(Modulo, vec![left, right]),
                 syn::BinOp::And(_) => App(And, vec![left, right]),
                 syn::BinOp::Or(_) => App(Or, vec![left, right]),
-                // Bit operations not implemented for now
-                // syn::BinOp::BitXor(_) => App(BitXor, vec![left, right]),
-                // syn::BinOp::BitAnd(_) => App(BitAnd, vec![left, right]),
-                // syn::BinOp::BitOr(_) => App(BitOr, vec![left, right]),
-                // syn::BinOp::Shl(_) => App(Shl, vec![left, right]),
-                // syn::BinOp::Shr(_) => App(Shr, vec![left, right]),
                 syn::BinOp::Eq(_) => App(Equals, vec![left, right]),
                 syn::BinOp::Ne(_) => App(NotEquals, vec![left, right]),
                 syn::BinOp::Lt(_) => App(LessThan, vec![left, right]),

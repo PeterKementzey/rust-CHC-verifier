@@ -18,7 +18,7 @@ pub(crate) enum Expr {
 }
 
 impl Expr {
-    fn extract_predicates<'a>(&'a self, predicates: &mut HashSet<PredicateRef<'a>>) {
+    fn find_predicates<'a>(&'a self, predicates: &mut HashSet<PredicateRef<'a>>) {
         match self {
             App(Predicate(name), args) => {
                 let arg_count = args.len();
@@ -32,12 +32,12 @@ impl Expr {
                     predicates.insert(PredicateRef { name, args });
                 }
                 for arg in args {
-                    arg.extract_predicates(predicates);
+                    arg.find_predicates(predicates);
                 }
             }
             App(_, args) => {
                 for arg in args {
-                    arg.extract_predicates(predicates);
+                    arg.find_predicates(predicates);
                 }
             }
             _ => {}
@@ -110,10 +110,10 @@ impl HornClause {
         vars
     }
 
-    fn extract_predicates<'a>(&'a self, predicates: &mut HashSet<PredicateRef<'a>>) {
-        self.head.extract_predicates(predicates);
+    fn find_predicates<'a>(&'a self, predicates: &mut HashSet<PredicateRef<'a>>) {
+        self.head.find_predicates(predicates);
         for expr in &self.body {
-            expr.extract_predicates(predicates);
+            expr.find_predicates(predicates);
         }
     }
 }
@@ -222,19 +222,19 @@ impl Smtlib2Display for Vec<HornClause> {
 }
 
 trait CHCSystem {
-    fn extract_unique_predicates(&self) -> Vec<PredicateRef<'_>>;
+    fn find_unique_predicates(&self) -> Vec<PredicateRef<'_>>;
     fn generate_predicate_declarations(&self) -> Vec<String>;
 }
 
 impl CHCSystem for Vec<HornClause> {
-    fn extract_unique_predicates(&self) -> Vec<PredicateRef<'_>> {
+    fn find_unique_predicates(&self) -> Vec<PredicateRef<'_>> {
         fn get_query_num(name: &str) -> usize {
             name[1..].parse().unwrap()
         }
 
         let mut unique_predicates = HashSet::new();
         for clause in self {
-            clause.extract_predicates(&mut unique_predicates);
+            clause.find_predicates(&mut unique_predicates);
         }
         let mut predicates: Vec<PredicateRef> = unique_predicates.into_iter().collect();
         predicates.sort_by(|a, b| get_query_num(a.name).cmp(&get_query_num(b.name)));
@@ -242,7 +242,7 @@ impl CHCSystem for Vec<HornClause> {
     }
 
     fn generate_predicate_declarations(&self) -> Vec<String> {
-        self.extract_unique_predicates()
+        self.find_unique_predicates()
             .iter()
             .map(|PredicateRef { name, args }| {
                 let arg_types = (0..args.len())
