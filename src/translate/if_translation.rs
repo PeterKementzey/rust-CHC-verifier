@@ -1,5 +1,7 @@
 use crate::drop_elaboration::ExtendedStmt;
-use crate::smtlib2::{Expr, HornClause, Operation};
+use crate::smtlib2::Expr::App;
+use crate::smtlib2::Operation::Predicate;
+use crate::smtlib2::{HornClause, Operation};
 use crate::translate::syn_expr_translation::translate_syn_expr;
 use crate::translate::translate_stmt;
 use crate::translate::utils::CHCSystem;
@@ -9,17 +11,14 @@ pub(super) fn translate_if(
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
     if let ExtendedStmt::If(condition, then_block, else_block) = if_stmt {
-        // note: at the end of the if block if all goes well then both queries should have the exact same parameters, same variables were dropped
-        // you should assert this. don't forget about possibility of aliases - but also the two alias_groups should be equivalent
         println!("If condition: {condition:?}");
         println!("Then block: {then_block:?}");
-        println!("Else block: {:?}", else_block.as_ref().unwrap());
+        println!("Else block: {else_block:?}");
 
         #[allow(non_snake_case)]
         let mut then_CHCs: Vec<HornClause> = Vec::new();
         #[allow(non_snake_case)]
         let mut else_CHCs: Vec<HornClause> = Vec::new();
-        // let mut then_alias_groups = alias_groups.clone(); // TODO
 
         let condition = translate_syn_expr(condition);
 
@@ -28,36 +27,42 @@ pub(super) fn translate_if(
         then_CHCs.push(if_clause);
 
         let mut else_clause = CHCs.create_next_CHC();
-        else_clause
-            .body
-            .push(Expr::App(Operation::Not, vec![condition]));
+        else_clause.body.push(App(Operation::Not, vec![condition]));
         else_CHCs.push(else_clause);
 
         for stmt in then_block {
             translate_stmt(stmt, &mut then_CHCs);
         }
 
-        // TODO else
+        for stmt in else_block {
+            translate_stmt(stmt, &mut else_CHCs);
+        }
 
         let last_then_query = then_CHCs
             .get_latest_query()
             .unwrap()
             .to_expr_without_trailing_apostrophes();
 
-        CHCs.append(&mut then_CHCs);
-        CHCs.append(&mut else_CHCs);
+        let last_else_query = else_CHCs
+            .get_latest_query()
+            .unwrap()
+            .to_expr_without_trailing_apostrophes();
 
-        // TODO check that the last query of else block is equal to the last query of the else block
+        if let (App(Predicate(_), then_query_args), App(Predicate(_), else_query_args)) = (
+            &last_then_query,
+            &last_else_query,
+        ) {
+            assert_eq!(then_query_args, else_query_args);
+        }
 
-        let connecting_clause_else = CHCs.create_next_CHC();
-        let connecting_clause_then = {
-            let mut clause = connecting_clause_else.clone();
-            clause.body = vec![last_then_query];
-            clause
+        let connecting_clause = HornClause {
+            head: last_else_query,
+            body: vec![last_then_query],
         };
 
-        CHCs.push(connecting_clause_then);
-        CHCs.push(connecting_clause_else);
+        CHCs.append(&mut then_CHCs);
+        CHCs.append(&mut else_CHCs);
+        CHCs.push(connecting_clause);
     } else {
         panic!("Expected If statement, got: {if_stmt:?}");
     }

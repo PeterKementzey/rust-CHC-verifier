@@ -13,7 +13,7 @@ pub(crate) enum ExtendedStmt {
     Stmt(Stmt),
     Drop(String),
     LastUseBeforeOverwrite(String),
-    If(Expr, Vec<ExtendedStmt>, Option<Vec<ExtendedStmt>>),
+    If(Expr, Vec<ExtendedStmt>, Vec<ExtendedStmt>),
 }
 
 fn find_last_used_and_overwritten_vars_in_stmt<T>(
@@ -101,13 +101,11 @@ fn add_drops_to_block(
                         &mut last_used_vars.clone(),
                         &mut last_used_before_overwrite.clone(),
                     );
-                    if let Some(else_block) = else_block {
-                        add_drops_to_if_branch(
-                            else_block,
-                            &mut last_used_vars,
-                            &mut last_used_before_overwrite,
-                        );
-                    }
+                    add_drops_to_if_branch(
+                        else_block,
+                        &mut last_used_vars,
+                        &mut last_used_before_overwrite,
+                    );
                 } else {
                     unreachable!()
                 }
@@ -189,7 +187,10 @@ mod util {
             if let Stmt::Expr(Expr::If(if_expr), _) = &stmt {
                 let condition = if_expr.cond.as_ref().clone();
                 let then_block = ExtendedStmt::from_block(&if_expr.then_branch);
-                let else_block = syn_utils::get_else_block(if_expr).map(ExtendedStmt::from_block);
+                let else_block = match syn_utils::get_else_block(if_expr) {
+                    Some(else_block) => ExtendedStmt::from_block(else_block),
+                    None => Vec::new(),
+                };
 
                 ExtendedStmt::If(condition, then_block, else_block)
             } else {
@@ -316,9 +317,7 @@ mod util {
                 ExtendedStmt::If(condition, then_block, else_block) => {
                     self.visit_expr(condition);
                     self.visit_extended_stmt_block(then_block);
-                    if let Some(else_block) = else_block {
-                        self.visit_extended_stmt_block(else_block);
-                    }
+                    self.visit_extended_stmt_block(else_block);
                 }
             }
         }
