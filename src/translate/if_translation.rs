@@ -1,4 +1,5 @@
 use log::trace;
+
 use crate::drop_elaboration::ExtendedStmt;
 use crate::smtlib2::Expr::App;
 use crate::smtlib2::Operation::Predicate;
@@ -49,10 +50,9 @@ pub(super) fn translate_if(
             .unwrap()
             .to_expr_without_trailing_apostrophes();
 
-        if let (App(Predicate(_), then_query_args), App(Predicate(_), else_query_args)) = (
-            &last_then_query,
-            &last_else_query,
-        ) {
+        if let (App(Predicate(_), then_query_args), App(Predicate(_), else_query_args)) =
+            (&last_then_query, &last_else_query)
+        {
             assert_eq!(then_query_args, else_query_args);
         }
 

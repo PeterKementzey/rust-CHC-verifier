@@ -86,9 +86,7 @@ pub(super) fn translate_assignment(
     fn get_reference_name(lhs: &smtlib2::Expr) -> String {
         // if we are creating an alias then from syntax lhs seems like a `Var`, but is actually a `ReferenceCurrVal`
         match &lhs {
-            Var(name) => {
-                name.clone()
-            }
+            Var(name) => name.clone(),
             _ => panic!("Left hand side is not a variable"),
         }
     }
