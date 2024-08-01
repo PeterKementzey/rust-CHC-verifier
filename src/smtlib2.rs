@@ -121,16 +121,26 @@ impl HornClause {
 impl Display for HornClause {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let vars: Vec<String> = sorted(self.free_vars()).collect();
-        write!(f, "(assert (forall ((|{}| Int)", vars[0])?;
-        for var in &vars[1..] {
-            write!(f, " (|{var}| Int)")?;
+        write!(f, "(assert (")?;
+
+        if !vars.is_empty() {
+            write!(f, "forall ((|{}| Int)", vars[0])?;
+            for var in &vars[1..] {
+                write!(f, " (|{var}| Int)")?;
+            }
+            write!(f, ") (")?;
         }
+
         let body = if self.body.is_empty() {
             ConstTrue
         } else {
             App(Operation::And, self.body.clone())
         };
-        write!(f, ") (=> {} {})))", body, self.head)
+        write!(f, "=> {} {}))", body, self.head)?;
+        if !vars.is_empty() {
+            write!(f, ")")?;
+        }
+        Ok(())
     }
 }
 
