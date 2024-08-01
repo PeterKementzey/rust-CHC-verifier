@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::{stdout, Write};
 use std::path::{Path, PathBuf};
 
+use log::{log_enabled, trace, Level};
 use quote::quote;
 use syn::parse_file;
 
@@ -17,6 +18,8 @@ mod syn_utils;
 mod translate;
 
 fn main() {
+    setup_logging();
+
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
         eprintln!("Please provide a single file to parse");
@@ -34,10 +37,10 @@ fn main() {
     let src = fs::read_to_string(source_path).expect("Unable to read file");
     let ast = parse_file(&src).expect("Unable to parse file");
 
-    {
+    if log_enabled!(Level::Trace) {
         let tokens = quote! { #ast };
-        println!("The entire AST:");
-        println!("{tokens}");
+        trace!("The entire AST:");
+        trace!("{tokens}");
     }
 
     #[allow(non_snake_case)]
@@ -67,4 +70,21 @@ fn main() {
 
     CHCs.write_as_smtlib2(output)
         .expect("Could not write to output");
+}
+
+fn setup_logging() {
+    use std::io::Write;
+
+    env_logger::builder()
+        .format(|buf, record| {
+            let level = match record.level() {
+                Level::Error => "\x1b[31mERROR\x1b[0m", // Red
+                Level::Warn => "\x1b[33mWARN\x1b[0m",   // Yellow
+                Level::Info => "\x1b[32mINFO\x1b[0m",   // Green
+                Level::Debug => "\x1b[34mDEBUG\x1b[0m", // Blue
+                Level::Trace => "\x1b[94mTRACE\x1b[0m", // Light Blue
+            };
+            writeln!(buf, "{}: {}", level, record.args())
+        })
+        .init();
 }

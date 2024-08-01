@@ -1,3 +1,4 @@
+use log::trace;
 use crate::drop_elaboration::ExtendedStmt;
 use crate::smtlib2::Expr::App;
 use crate::smtlib2::Operation::Predicate;
@@ -11,9 +12,9 @@ pub(super) fn translate_if(
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
     if let ExtendedStmt::If(condition, then_block, else_block) = if_stmt {
-        println!("If condition: {condition:?}");
-        println!("Then block: {then_block:?}");
-        println!("Else block: {else_block:?}");
+        trace!("If condition: {condition:?}");
+        trace!("Then block: {then_block:?}");
+        trace!("Else block: {else_block:?}");
 
         #[allow(non_snake_case)]
         let mut then_CHCs: Vec<HornClause> = Vec::new();
