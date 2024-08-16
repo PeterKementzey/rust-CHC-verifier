@@ -13,13 +13,13 @@ use crate::{smtlib2, syn_utils};
 ///  - If the new variable is a reference then
 ///     - Either we are newly borrowing a variable
 ///     - Or we are creating a new alias from another reference variable
-///  - If the new variable is an integer then it's just an assignment initialization
+///  - If the new variable is an integer then it's just initialization
 pub(super) fn translate_local_var_decl(
     local: &syn::Local,
     #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
 ) {
     #[allow(clippy::similar_names)]
-    pub(super) fn case_borrow(
+    fn case_borrow(
         #[allow(clippy::ptr_arg)] reference_name: &String,
         rhs: &syn::Expr,
         #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
@@ -30,7 +30,7 @@ pub(super) fn translate_local_var_decl(
         create_reference(reference_name, &referenced_var, CHCs);
     }
 
-    pub(super) fn case_create_alias(
+    fn case_create_alias(
         #[allow(clippy::ptr_arg)] new_alias_name: &String,
         rhs_name: &str,
         #[allow(non_snake_case)] CHCs: &mut Vec<HornClause>,
@@ -39,6 +39,7 @@ pub(super) fn translate_local_var_decl(
 
         create_reference(new_alias_name, &referenced_ref, CHCs);
     }
+
     fn case_integer_init(
         #[allow(clippy::ptr_arg)] new_var_name: &String,
         rhs: smtlib2::Expr,
@@ -230,15 +231,15 @@ mod util {
     /// - Variable declaration:
     ///   - (No initialization - disallowed for now (or forever))
     ///   - Simple assignment (integer)
-    ///   - Assignment of other borrow (alias creation)
+    ///   - Assignment of other reference (alias creation)
     ///     - We know this from the fact that rhs is a reference
-    ///   - Borrow of variable (could be that there is already a borrow to this variable in which case also alias)
+    ///   - Borrow of variable
     ///     - We know this from syntax
     /// - Assignment
     ///   - Simple assignment (integer)
     ///   - Assignment of other borrow (alias creation)
     ///     - We know this from both left and right being a reference
-    ///   - Borrow of variable (could be that there is already a borrow to this variable in which case also alias)
+    ///   - Borrow of variable
     ///     - We know this from syntax
     ///
     /// We start with checking in syntax if it's a borrow. If not we can parse the rhs. Then we check if rhs is a reference.

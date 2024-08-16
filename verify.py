@@ -50,9 +50,9 @@ def main():
     run_command('cargo build --release')
 
     if len(sys.argv) < 2:
-        for file in os.listdir('examples'):
-            if file.endswith('.rs'):
-                verify_example(f'examples/{file}')
+        files = [file for file in os.listdir('examples') if file.endswith('.rs')]
+        for file in sorted(files):
+            verify_example(f'examples/{file}')
     else:
         for arg in sys.argv[1:]:
             verify_example(arg)
