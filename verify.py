@@ -20,11 +20,13 @@ import sys
 def print_green(text):
     GREEN = '\033[92m'  # Green text
     ENDC = '\033[0m'  # Reset to the default color
-    print(f"{GREEN}{text}{ENDC}")
+    print(f"{GREEN}{text}{ENDC}", flush=True)
 
 def run_command(command: str):
     print_green(f'Running: {command}')
     subprocess.run(command, shell=True, check=True)
+    sys.stdout.flush()
+    sys.stderr.flush()
 
 
 def verify_example(example: str):
