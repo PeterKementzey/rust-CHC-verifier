@@ -84,7 +84,7 @@ fn add_drops_to_block(
             }
 
             if_stmt @ ExtendedStmt::If(_, _, _) => {
-                let (mut last_used_vars, mut last_used_before_overwrite): (
+                let (last_used_vars, last_used_before_overwrite): (
                     HashSet<String>,
                     HashSet<String>,
                 ) = find_last_used_and_overwritten_vars_in_stmt(
@@ -96,17 +96,37 @@ fn add_drops_to_block(
                 variables_to_drop.retain(|var| !last_used_vars.contains(var));
                 overwritten_variables.retain(|var| !last_used_before_overwrite.contains(var));
 
-                if let ExtendedStmt::If(_, then_block, else_block) = if_stmt {
-                    add_drops_to_if_branch(
+                if let ExtendedStmt::If(condition, then_block, else_block) = if_stmt {
+                    let mut remaining_overwritten_vars_then_block = add_drops_to_if_branch(
                         then_block,
-                        &mut last_used_vars.clone(),
-                        &mut last_used_before_overwrite.clone(),
+                        last_used_vars.clone(),
+                        last_used_before_overwrite.clone(),
                     );
-                    add_drops_to_if_branch(
+                    let mut remaining_overwritten_vars_else_block = add_drops_to_if_branch(
                         else_block,
-                        &mut last_used_vars,
-                        &mut last_used_before_overwrite,
+                        last_used_vars,
+                        last_used_before_overwrite,
                     );
+                    let newly_overwritten_vars_that_are_not_in_if_condition: Vec<String> = {
+                        let mut collector = VarCollector::new();
+                        collector.visit_expr(condition);
+                        let remained_overwritten_vars_in_both =
+                            remaining_overwritten_vars_then_block
+                                .iter()
+                                .filter(|var| remaining_overwritten_vars_else_block.contains(var) && !collector.variables.contains(*var));
+                        remained_overwritten_vars_in_both.filter(|var| !collector.variables.contains(*var)).cloned().collect()
+                    };
+                    remaining_overwritten_vars_then_block
+                        .retain(|var| !newly_overwritten_vars_that_are_not_in_if_condition.contains(var));
+                    remaining_overwritten_vars_else_block
+                        .retain(|var| !newly_overwritten_vars_that_are_not_in_if_condition.contains(var));
+                    overwritten_variables.extend(newly_overwritten_vars_that_are_not_in_if_condition);
+                    for var in remaining_overwritten_vars_then_block.iter().rev() {
+                        then_block.insert(0, ExtendedStmt::LastUseBeforeOverwrite(var.clone()));
+                    }
+                    for var in remaining_overwritten_vars_else_block.iter().rev() {
+                        else_block.insert(0, ExtendedStmt::LastUseBeforeOverwrite(var.clone()));
+                    }
                 } else {
                     unreachable!()
                 }
@@ -114,16 +134,20 @@ fn add_drops_to_block(
                 #[allow(clippy::items_after_statements)]
                 fn add_drops_to_if_branch(
                     branch_stmts: &mut Vec<ExtendedStmt>,
-                    last_used_vars: &mut HashSet<String>,
-                    last_used_before_overwrite: &mut HashSet<String>,
-                ) {
+                    mut last_used_vars: HashSet<String>,
+                    mut last_used_before_overwrite: HashSet<String>,
+                ) -> Vec<String> {
                     let locally_declared_vars: HashSet<String> = {
                         let mut collector = DeclaredVarCollector::new();
                         collector.visit_extended_stmt_block(branch_stmts);
                         collector.variables
                     };
                     last_used_vars.extend(locally_declared_vars.iter().cloned());
-                    add_drops_to_block(branch_stmts, last_used_vars, last_used_before_overwrite);
+                    add_drops_to_block(
+                        branch_stmts,
+                        &mut last_used_vars,
+                        &mut last_used_before_overwrite,
+                    );
                     let remaining_vars: Vec<String> =
                         last_used_vars.iter().sorted().cloned().collect();
                     let remaining_overwritten_vars: Vec<String> = last_used_before_overwrite
@@ -131,12 +155,10 @@ fn add_drops_to_block(
                         .sorted()
                         .cloned()
                         .collect();
-                    for var in remaining_overwritten_vars.iter().rev() {
-                        branch_stmts.insert(0, ExtendedStmt::LastUseBeforeOverwrite(var.clone()));
-                    }
                     for var in remaining_vars.iter().rev() {
                         branch_stmts.insert(0, ExtendedStmt::Drop(var.clone()));
                     }
+                    remaining_overwritten_vars
                 }
             }
 
