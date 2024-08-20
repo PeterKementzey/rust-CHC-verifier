@@ -69,3 +69,15 @@ pub(crate) fn get_else_block(if_expr: &syn::ExprIf) -> Option<&syn::Block> {
         }
     })
 }
+
+pub(crate) fn get_called_function_name(expr_call: &syn::ExprCall) -> Vec<String> {
+    if let syn::Expr::Path(path) = expr_call.func.as_ref() {
+        path.path
+            .segments
+            .iter()
+            .map(|p| p.ident.to_string())
+            .collect()
+    } else {
+        panic!("Expected path expression in function call {expr_call:?}")
+    }
+}

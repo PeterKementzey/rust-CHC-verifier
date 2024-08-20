@@ -1,8 +1,8 @@
 fn main() {
     let mut unused = 0; // We do not support uninitialized variables, so the reference needs to be initialized
 
-    let mut a = 4;
-    let mut b = 5;
+    let mut a = rand::random();
+    let mut b = rand::random();
     let r_a = &mut a;
     let r_b = &mut b;
     let mut r_max = &mut unused;

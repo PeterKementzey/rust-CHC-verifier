@@ -4,7 +4,9 @@ use std::io::Write;
 
 use itertools::sorted;
 
-use crate::smtlib2::Expr::{App, Const, ConstTrue, ReferenceCurrVal, ReferenceFinalVal, Var};
+use crate::smtlib2::Expr::{
+    App, Const, ConstTrue, RandomNumber, ReferenceCurrVal, ReferenceFinalVal, Var,
+};
 use crate::smtlib2::Operation::Predicate;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -12,6 +14,7 @@ pub(crate) enum Expr {
     Var(String),
     Const(i32),
     ConstTrue,
+    RandomNumber(u32),
     ReferenceCurrVal(String),
     ReferenceFinalVal(String),
     App(Operation, Vec<Expr>),
@@ -43,6 +46,13 @@ impl Expr {
             _ => {}
         }
     }
+
+    pub(crate) fn fresh_random_number() -> Expr {
+        // Need to use atomic for static variable because Rust deems mutable statics unsafe due to potential parallelism
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static RANDOM_NUMBER_COUNT: AtomicU32 = AtomicU32::new(0);
+        RandomNumber(RANDOM_NUMBER_COUNT.fetch_add(1, Ordering::Relaxed))
+    }
 }
 
 impl Display for Expr {
@@ -51,6 +61,7 @@ impl Display for Expr {
             Var(name) => write!(f, "|{name}|"), // we always quote variable names for simplicity
             Const(value) => write!(f, "{value}"),
             ConstTrue => write!(f, "true"),
+            RandomNumber(num) => write!(f, "|$rand{num}|"), // $ is there to avoid accidental name clash
             // predicates can have 0 arguments, in which case Z3 does not accept parentheses
             App(ref pred @ Predicate(_), args) if args.is_empty() => write!(f, "{pred}"),
             App(op, args) => {
@@ -86,6 +97,9 @@ impl HornClause {
             match expr {
                 Var(name) => {
                     vars.insert(name.clone());
+                }
+                RandomNumber(num) => {
+                    vars.insert(format!("$rand{num}"));
                 }
                 ReferenceCurrVal(name) => {
                     vars.insert(current_value_repr(name));

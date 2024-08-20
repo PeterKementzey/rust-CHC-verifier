@@ -4,7 +4,7 @@ use crate::smtlib2::Operation::{
     Add, And, Div, Equals, GreaterEquals, GreaterThan, LessEquals, LessThan, Modulo, Mul, Not,
     NotEquals, Or, Sub,
 };
-use crate::syn_utils::get_var_name;
+use crate::syn_utils::{get_called_function_name, get_var_name};
 
 pub(super) fn translate_syn_expr(expr: &syn::Expr) -> smtlib2::Expr {
     match expr {
@@ -55,6 +55,23 @@ pub(super) fn translate_syn_expr(expr: &syn::Expr) -> smtlib2::Expr {
             lit: syn::Lit::Int(lit_int),
             ..
         }) => Const(lit_int.base10_parse::<i32>().expect("Cannot parse integer")),
+        // Random number
+        syn::Expr::Call(expr) => {
+            let func_name = get_called_function_name(expr);
+            assert_eq!(
+                func_name.len(), 2,
+                "Unrecognized function call: {}", func_name.join("::")
+            );
+            assert_eq!(
+                func_name[0], "rand",
+                "Unrecognized function call segment: {}", func_name[0]
+            );
+            assert_eq!(
+                func_name[1], "random",
+                "Unrecognized function call: {}", func_name[1]
+            );
+            smtlib2::Expr::fresh_random_number()
+        }
 
         _ => panic!("Unsupported syn expression, got: {expr:?}"),
     }
